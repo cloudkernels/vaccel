@@ -1,0 +1,9 @@
+[submodule "vaccelrt"]
+	path = vaccelrt
+	url = git@github.com:cloudkernels/vaccelrt.git
+[submodule "firecracker"]
+	path = firecracker
+	url = git@github.com:cloudkernels/firecracker.git
+[submodule "virtio-accel"]
+	path = virtio-accel
+	url = git@github.com:cloudkernels/virtio-accel.git

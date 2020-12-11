@@ -50,3 +50,11 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# vim
+.*.swp
+.*.swo
+
+# repos output artifacts
+build
+output
