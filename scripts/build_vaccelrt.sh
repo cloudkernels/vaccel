@@ -47,7 +47,7 @@ prepare_env() {
 }
 
 build() {
-	cd $BUILD_DIR
+	cd $BUILD_DIR/vaccelrt
 	# Configure Cmake
 	cmake $SRC_DIR \
 		-DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX \

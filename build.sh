@@ -5,10 +5,10 @@
 SOURCEDIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
 # top-level build directory
-BUILD_DIR=build
+BUILD_DIR=$(pwd)/build
 
 # install directory
-INSTALL_PREFIX=output
+INSTALL_PREFIX=$(pwd)/output
 
 # Build type
 BUILD_TYPE=debug
@@ -34,21 +34,26 @@ prepare_build_env() {
 
 #Build VaccelRT
 runctr_vaccel_deps() {
-	docker run --rm -ti -v $(pwd):/workspace nubificus/vaccel-deps:latest "$@"
+	docker run --rm -ti \
+		-v ${SOURCEDIR}/scripts:/scripts \
+		-v ${SOURCEDIR}/vaccelrt:/vaccelrt \
+		-v ${BUILD_DIR}/${BUILD_TYPE}:/build \
+		-v ${INSTALL_PREFIX}/${BUILD_TYPE}:/output \
+		nubificus/vaccel-deps:latest "$@"
 }
 
 build_vaccelrt() {
 	info "Calling VaccelRT script inside container"
-	runctr_vaccel_deps /workspace/scripts/build_vaccelrt.sh \
+	runctr_vaccel_deps /scripts/build_vaccelrt.sh \
 		--$BUILD_TYPE \
-		--src_dir /workspace/vaccelrt \
-		--build_dir /workspace/$BUILD_DIR/$BUILD_TYPE \
-		--install_prefix /workspace/$INSTALL_PREFIX/$BUILD_TYPE
+		--src_dir /vaccelrt \
+		--build_dir /build \
+		--install_prefix /output
+	ok_or_die "Could not build vaccelrt inside container"
 
 	# Fix permissions
-	runctr_vaccel_deps chown -R "$(id -u):$(id -g)" \
-		"/workspace/$BUILD_DIR" \
-		"/workspace/$INSTALL_PREFIX"
+	runctr_vaccel_deps chown -R "$(id -u):$(id -g)" /build /output
+	ok_or_die "Could not fix permissions for vaccelrt"
 }
 
 #Build Firecracker
@@ -60,8 +65,8 @@ build_firecracker() {
 build_virtio() {
 	info "Calling the virtio-accel build script"
 	./scripts/build_virtio.sh \
-		--build_dir $(pwd)/$BUILD_DIR/$BUILD_TYPE \
-		--install_prefix $(pwd)/$INSTALL_PREFIX/$BUILD_TYPE
+		--build_dir $BUILD_DIR/$BUILD_TYPE \
+		--install_prefix $INSTALL_PREFIX/$BUILD_TYPE
 }
 
 build_fc_rootfs() {
