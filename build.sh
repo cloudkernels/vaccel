@@ -10,6 +10,9 @@ BUILD_DIR=$(pwd)/build
 # install directory
 INSTALL_PREFIX=$(pwd)/output
 
+# Dockerfiles directory
+DOCKERFILES_DIR=$(pwd)/dockerfiles
+
 # Build type
 BUILD_TYPE=debug
 
@@ -60,6 +63,7 @@ build_vaccelrt() {
 build_firecracker() {
 	info "Calling firecracker script"
 	./scripts/build_firecracker.sh --$BUILD_TYPE --install_prefix $INSTALL_PREFIX/$BUILD_TYPE
+	ok_or_die "Could not build firecracker"
 }
 
 build_virtio() {
@@ -67,10 +71,23 @@ build_virtio() {
 	./scripts/build_virtio.sh \
 		--build_dir $BUILD_DIR/$BUILD_TYPE \
 		--install_prefix $INSTALL_PREFIX/$BUILD_TYPE
+	ok_or_die "Could not build virtio module"
 }
 
 build_fc_rootfs() {
-	die "Building the rootfs is not supported yet"
+	info "Calling the rootfs build script"
+	./scripts/build_rootfs.sh \
+		--install_prefix $INSTALL_PREFIX/$BUILD_TYPE \
+		--build_dir $BUILD_DIR/$BUILD_TYPE \
+		--base_image "ubuntu:latest" \
+		--dockerfiles_path $DOCKERFILES_DIR
+	ok_or_die "Could not build rootfs"
+}
+
+download_models() {
+	info "Downloading imagenet models"
+	mkdir -p $INSTALL_PREFIX/$BUILD_TYPE/share/networks
+	./scripts/download-models.sh NO $INSTALL_PREFIX/$BUILD_TYPE/share/networks
 }
 
 build_all() {
@@ -78,6 +95,7 @@ build_all() {
 	build_firecracker
 	build_virtio
 	build_fc_rootfs
+	download_models
 }
 
 build_help() {
@@ -92,11 +110,23 @@ build_help() {
 	echo ""
 	echo "Available components to build:"
 	echo ""
-	echo "    all:         build all Vaccel components"
-	echo "    vaccelrt:    build the VaccelRT runtime"
-	echo "    firecracker: build Firecracker"
-	echo "    virtio:      build the vaccel-virtio module & corresponding kernel"
-	echo "    fc_rootfs:   build a rootfs image for firecracker"
+	echo "    all"
+	echo "        build all Vaccel components"
+	echo ""
+	echo "    vaccelrt"
+	echo "        build the VaccelRT runtime"
+	echo ""
+	echo "    firecracker"
+	echo "        build Firecracker"
+	echo ""
+	echo "    virtio"
+	echo "        build the vaccel-virtio module & corresponding kernel"
+	echo ""
+	echo "    fc_rootfs"
+	echo "        build a rootfs image for firecracker"
+	echo ""
+	echo "    imagenet-models"
+	echo "        Download imagenet network models"
 	echo ""
 }
 

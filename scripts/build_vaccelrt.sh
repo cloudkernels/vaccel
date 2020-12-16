@@ -52,12 +52,16 @@ build() {
 	cmake $SRC_DIR \
 		-DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX \
 		-DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+		-DBUILD_EXAMPLES=ON \
 		-DBUILD_PLUGIN_JETSON=ON \
 		-DBUILD_PLUGIN_VIRTIO=ON
 
 	# Build and install
 	cmake --build . --config ${BUILD_TYPE}
-	make test && make install -C src && make install -C plugins
+	make test && \
+		make install -C src && \
+		make install -C plugins && \
+		make install -C examples
 	cd -
 }
 
