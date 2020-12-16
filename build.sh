@@ -59,7 +59,9 @@ build_firecracker() {
 
 build_virtio() {
 	info "Calling the virtio-accel build script"
-	./scripts/build_virtio.sh
+	./scripts/build_virtio.sh \
+		--build_dir $(pwd)/$BUILD_DIR/$BUILD_TYPE \
+		--install_prefix $(pwd)/$INSTALL_PREFIX/$BUILD_TYPE
 }
 
 build_fc_rootfs() {
