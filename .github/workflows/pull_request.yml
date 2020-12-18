@@ -1,0 +1,124 @@
+name: Test e2e Pull Request
+
+on: [pull_request]
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      vaccelrt_sha: ${{ steps.vars.outputs.vaccelrt_sha }}
+      firecracker_sha: ${{ steps.vars.outputs.firecracker_sha }}
+      virtio_accel_sha: ${{ steps.vars.outputs.virtio_accel_sha }}
+
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup vars
+      id: vars
+      run: |
+        echo "::set-output name=vaccelrt_sha::$(git ls-tree ${{ github.sha }} | grep vaccelrt | awk '{print $3}')"
+        echo "::set-output name=firecracker_sha::$(git ls-tree ${{ github.sha }} | grep firecracker | awk '{print $3}')"
+        echo "::set-output name=virtio_accel_sha::$(git ls-tree ${{ github.sha }} | grep virtio-accel | awk '{print $3}')"
+
+  copy_from_s3:
+    needs: prepare
+    runs-on: ubuntu-latest
+    container:
+      image: minio/mc
+      env:
+        NBFC_S3_ACCESS: ${{ secrets.AWS_ACCESS_KEY }}
+        NBFC_S3_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        VACCELRT_SHA: ${{needs.prepare.outputs.vaccelrt_sha}}
+        FIRECRACKER_SHA: ${{ needs.prepare.outputs.firecracker_sha }}
+        VIRTIO_SHA: ${{ needs.prepare.outputs.virtio_accel_sha }}
+        JOB_TYPE: ${{ matrix.build_type }}
+      volumes:
+        - /tmp/vaccel:/vaccel
+
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+
+    steps:
+    - name: Fetch vaccelrt & Firecracker
+      run: |
+        mc alias set s3 https://s3.nubificus.co.uk $NBFC_S3_ACCESS $NBFC_S3_SECRET
+        mc cp -r s3/nbfc-assets/github/vaccelrt/$VACCELRT_SHA/$JOB_TYPE/opt /vaccel/
+        mc cp s3/nbfc-assets/github/firecracker/$FIRECRACKER_SHA/$(echo "$JOB_TYPE" | awk '{print tolower($0)}')/firecracker /vaccel/opt/bin/firecracker
+        mc cp s3/nbfc-assets/github/virtio-accel/$VIRTIO_SHA/linux/vmlinux /vaccel/opt/share/
+        mc cp s3/nbfc-assets/github/virtio-accel/$VIRTIO_SHA/linux/virtio_accel.ko /vaccel/opt/share
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: vaccel-rootfs-${{ matrix.build_type }}
+        path: /vaccel/opt
+
+  run_test:
+    needs: copy_from_s3
+    runs-on: [self-hosted, gpu]
+
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions/download-artifact@v2
+      with:
+        name: vaccel-rootfs-${{ matrix.build_type }}
+        path: /tmp/vaccel/
+
+    - name: Install packages
+      run: |
+        sudo apt update && sudo apt install -y \
+          subversion coreutils
+
+    - name: Create rootfs
+      run: |
+        chmod u+x /tmp/vaccel/bin/*
+        ./scripts/build_rootfs.sh \
+                --build_dir /tmp/rootfs_build \
+                --install_prefix /tmp/vaccel \
+                --base_image "ubuntu:latest" \
+                --dockerfiles_path "$(pwd)/dockerfiles"
+
+    - name: Fetch imagenet models
+      run: |
+        mkdir -p /tmp/vaccel/share/networks
+        ./scripts/download-models.sh NO /tmp/vaccel/share/networks
+
+    - name: Copy Firecracker config
+      run: |
+        cp conf/config_vaccel.json /tmp/vaccel/share/config.json
+
+    - name: Create tap interface
+      run: sudo ./scripts/create_tap.sh tapTestFc 172.42.0.1/24
+
+    - name: Launch Firecracker
+      working-directory: /tmp/vaccel
+      env:
+        LD_LIBRARY_PATH: /tmp/vaccel/lib
+        VACCEL_BACKENDS: /tmp/vaccel/lib/libvaccel-jetson.so
+      run: |
+        rm -f networks /tmp/vaccel/fc.sock
+        ln -s /tmp/vaccel/share/networks networks
+        export VACCEL_BACKENDS=/tmp/vaccel/lib/libvaccel-jetson.so
+        nohup ./bin/firecracker \
+          --api-sock /tmp/vaccel/fc.sock \
+          --config-file share/config.json \
+          --seccomp-level 0 &
+
+    - name: Test Firecracker is up
+      run: ping -c 20 172.42.0.2
+
+    - name: Run classification
+      run: |
+        timeout 500 /bin/bash -c "until ssh -o StrictHostKeyChecking=no -i /tmp/vaccel/share/fc_test root@172.42.0.2 LD_LIBRARY_PATH=/opt/vaccel/lib VACCEL_BACKENDS=/opt/vaccel/lib/libvaccel-virtio.so /opt/vaccel/bin/classify /root/images/dog_0.jpg 1 ; do sleep 2 ; done"
+
+    - name: Cleanup
+      run: rm -rf /tmp/vaccel/

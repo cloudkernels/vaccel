@@ -34,6 +34,7 @@ print_help() {
 
 fetch_images() {
 	svn export https://github.com/dusty-nv/jetson-inference/trunk/data/images images
+	svn export https://github.com/dusty-nv/jetson-inference/trunk/data/networks networks
 }
 
 prepare_env() {
@@ -47,6 +48,7 @@ prepare_env() {
 
 	# Bring other components
 	cp -r ${INSTALL_PREFIX}/* .
+	ok_or_die "Could not find components"
 
 	# Fetch Dockerfile on which we'll base the image
 	local image=$(echo "${BASE_IMAGE}" | awk -F ":" '{print $1}')
@@ -58,12 +60,14 @@ prepare_env() {
 	fi
 
 	cp ${DOCKERFILES_PATH}/${image}/${tag}/Dockerfile .
+	ok_or_die "Could not find Dockerfile for ${BASE_IMAGE}"
 
 	# Fetch imagenet
 	mkdir -p imagenet
 	pushd imagenet > /dev/null
 
 	fetch_images
+	ok_or_die "Could not fetch imagenet images"
 
 	popd > /dev/null
 	popd > /dev/null
@@ -72,12 +76,16 @@ prepare_env() {
 build() {
 	cd ${BUILD_DIR}/rootfs
 
+	# Create RSA key to rootfs
+	ssh-keygen -t rsa -f fc_test -N ""
+
 	# Create root filesystem
 	DOCKER_BUILDKIT=1 docker build \
 		--network=host \
 		-t vaccel-rootfs \
 		--build-arg "KERNEL_VERSION=4.20.0" \
 		--output type=local,dest=. .
+	ok_or_die "Could not build the base rootfs"
 
 	dd if=/dev/zero of=rootfs.img bs=1M count=0 seek=512
 	sudo mkfs.ext4 rootfs.img
@@ -88,6 +96,7 @@ build() {
 	ok_or_die "Could not mount rootfs"
 
 	sudo rsync -aogxvPH rootfs/* mnt
+	sudo chown -R root:root mnt/root
 	ok_or_die "Could not populate rootfs"
 
 	sudo rsync -aogxvPH imagenet/images mnt/root/
@@ -100,6 +109,8 @@ build() {
 	sudo rmdir mnt
 
 	cp rootfs.img ${INSTALL_PREFIX}/share/
+	cp fc_test* ${INSTALL_PREFIX}/share/
+	cp -r imagenet/networks ${INSTALL_PREFIX}/share/
 }
 
 main() {
