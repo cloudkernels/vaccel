@@ -106,7 +106,8 @@ jobs:
         VACCEL_BACKENDS: /tmp/vaccel/lib/libvaccel-jetson.so
       run: |
         rm -f networks /tmp/vaccel/fc.sock
-        ln -s /tmp/vaccel/share/networks networks
+        mkdir -p /usr/local/share/imagenet-models
+        ln -s /tmp/vaccel/share/networks /usr/local/share/imagenet-models/networks
         export VACCEL_BACKENDS=/tmp/vaccel/lib/libvaccel-jetson.so
         nohup ./bin/firecracker \
           --api-sock /tmp/vaccel/fc.sock \
