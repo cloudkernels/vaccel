@@ -102,12 +102,12 @@ jobs:
     - name: Launch Firecracker
       working-directory: /tmp/vaccel
       env:
-        LD_LIBRARY_PATH: /tmp/vaccel/lib
+        LD_LIBRARY_PATH: /tmp/vaccel/lib:/usr/local/lib:/usr/lib
         VACCEL_BACKENDS: /tmp/vaccel/lib/libvaccel-jetson.so
       run: |
         rm -f networks /tmp/vaccel/fc.sock
-        mkdir -p /usr/local/share/imagenet-models
-        ln -s /tmp/vaccel/share/networks /usr/local/share/imagenet-models/networks
+        sudo mkdir -p /usr/local/share/imagenet-models
+        sudo ln -s /tmp/vaccel/share/networks /usr/local/share/imagenet-models/networks
         export VACCEL_BACKENDS=/tmp/vaccel/lib/libvaccel-jetson.so
         nohup ./bin/firecracker \
           --api-sock /tmp/vaccel/fc.sock \
