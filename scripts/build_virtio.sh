@@ -70,7 +70,7 @@ build() {
 
 	# Now build the module
 	cd ..
-	make -C $SRC_DIR KDIR=$BUILD_DIR/virtio-accel/linux
+	make -C $SRC_DIR KDIR=$BUILD_DIR/virtio-accel/linux ZC=0
 	ok_or_die "Could not build the module"
 
 	cp $SRC_DIR/accel.h $INSTALL_PREFIX/include
