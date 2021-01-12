@@ -92,21 +92,22 @@ build() {
 	ok_or_die "Could not create filesystem for rootfs"
 
 	mkdir -p mnt
-	sudo mount rootfs.img mnt
+	mnt="$(mktemp -d)"
+	sudo mount rootfs.img $mnt
 	ok_or_die "Could not mount rootfs"
 
-	sudo rsync -aogxvPH rootfs/* mnt
-	sudo chown -R root:root mnt/root
+	sudo rsync -aogxvPH rootfs/* $mnt
+	sudo chown -R root:root $mnt/root
 	ok_or_die "Could not populate rootfs"
 
-	sudo rsync -aogxvPH imagenet/images mnt/root/
+	sudo rsync -aogxvPH imagenet/images $mnt/root/
 	ok_or_die "Could not add images"
 
-	sudo umount mnt
+	sudo umount $mnt
 	ok_or_die "Could unmount rootfs"
 
 	sudo sync
-	sudo rmdir mnt
+	sudo rmdir $mnt
 
 	cp rootfs.img ${INSTALL_PREFIX}/share/
 	cp fc_test* ${INSTALL_PREFIX}/share/
