@@ -105,7 +105,7 @@ jobs:
         LD_LIBRARY_PATH: /tmp/vaccel/lib:/usr/local/lib:/usr/lib
         VACCEL_BACKENDS: /tmp/vaccel/lib/libvaccel-jetson.so
       run: |
-        rm -f networks /tmp/vaccel/fc.sock
+        sudo rm -f /usr/local/share/imagenet-models/networks /tmp/vaccel/fc.sock
         sudo mkdir -p /usr/local/share/imagenet-models
         sudo ln -s /tmp/vaccel/share/networks /usr/local/share/imagenet-models/networks
         export VACCEL_BACKENDS=/tmp/vaccel/lib/libvaccel-jetson.so
