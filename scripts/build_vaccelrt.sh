@@ -10,10 +10,10 @@ BUILD_TYPE=debug
 SRC_DIR="$(pwd)/vaccelrt"
 
 # Build directory
-BUILD_DIR=build
+BUILD_DIR="$(pwd)/build"
 
 # Default installation directory
-INSTALL_PREFIX=output
+INSTALL_PREFIX="$(pwd)/output"
 
 # script name for logging
 LOG_NAME="$(basename $0)"

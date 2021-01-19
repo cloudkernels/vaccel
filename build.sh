@@ -38,24 +38,26 @@ prepare_build_env() {
 #Build VaccelRT
 runctr_vaccel_deps() {
 	docker run --rm -ti \
-		-v ${SOURCEDIR}/scripts:/scripts \
-		-v ${SOURCEDIR}/vaccelrt:/vaccelrt \
-		-v ${BUILD_DIR}/${BUILD_TYPE}:/build \
-		-v ${INSTALL_PREFIX}/${BUILD_TYPE}:/output \
-		nubificus/vaccel-deps:latest "$@"
+	       -v $SOURCEDIR:$SOURCEDIR \
+	       -v $BUILD_DIR:$BUILD_DIR \
+	       -v $INSTALL_PREFIX:$INSTALL_PREFIX \
+	       nubificus/vaccel-deps:latest "$@"
 }
 
 build_vaccelrt() {
 	info "Calling VaccelRT script inside container"
-	runctr_vaccel_deps /scripts/build_vaccelrt.sh \
+	runctr_vaccel_deps $SOURCEDIR/scripts/build_vaccelrt.sh \
 		--$BUILD_TYPE \
-		--src_dir /vaccelrt \
-		--build_dir /build \
-		--install_prefix /output
+		--src_dir $SOURCEDIR/vaccelrt \
+		--build_dir $BUILD_DIR/$BUILD_TYPE \
+		--install_prefix $INSTALL_PREFIX/$BUILD_TYPE
 	ok_or_die "Could not build vaccelrt inside container"
 
 	# Fix permissions
-	runctr_vaccel_deps chown -R "$(id -u):$(id -g)" /build /output
+	runctr_vaccel_deps chown -R "$(id -u):$(id -g)" \
+		$BUILD_DIR/$BUILD_TYPE/vaccelrt \
+		$INSTALL_PREFIX/$BUILD_TYPE
+		
 	ok_or_die "Could not fix permissions for vaccelrt"
 }
 
