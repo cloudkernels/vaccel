@@ -7,3 +7,12 @@
 [submodule "virtio-accel"]
 	path = virtio-accel
 	url = git@github.com:cloudkernels/virtio-accel.git
+[submodule "vaccel-grpc"]
+	path = vaccel-grpc
+	url = git@github.com:cloudkernels/vaccel-grpc.git
+[submodule "vaccelrt-client"]
+	path = vaccelrt-client
+	url = git@github.com:cloudkernels/vaccelrt-client.git
+[submodule "agent"]
+	path = agent
+	url = git@github.com:cloudkernels/vaccelrt-agent

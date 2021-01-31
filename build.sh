@@ -44,7 +44,7 @@ runctr_vaccel_deps() {
 	       nubificus/vaccel-deps:latest "$@"
 }
 
-build_vaccelrt() {
+build_vaccelrt_ctr() {
 	info "Calling VaccelRT script inside container"
 	runctr_vaccel_deps $SOURCEDIR/scripts/build_vaccelrt.sh \
 		--$BUILD_TYPE \
@@ -57,8 +57,15 @@ build_vaccelrt() {
 	runctr_vaccel_deps chown -R "$(id -u):$(id -g)" \
 		$BUILD_DIR/$BUILD_TYPE/vaccelrt \
 		$INSTALL_PREFIX/$BUILD_TYPE
-		
+
 	ok_or_die "Could not fix permissions for vaccelrt"
+}
+
+build_vaccelrt() {
+	info "Calling VaccelRT script on host"
+	./scripts/build_vaccelrt.sh \
+		--build_dir $BUILD_DIR/$BUILD_TYPE \
+		--install_prefix $INSTALL_PREFIX/$BUILD_TYPE
 }
 
 #Build Firecracker

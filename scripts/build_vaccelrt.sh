@@ -4,7 +4,7 @@
 SCRIPTPATH=$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )
 
 # Default build type
-BUILD_TYPE=debug
+BUILD_TYPE=Debug
 
 # vaccelrt source directory
 SRC_DIR="$(pwd)/vaccelrt"
@@ -54,7 +54,8 @@ build() {
 		-DCMAKE_BUILD_TYPE=$BUILD_TYPE \
 		-DBUILD_EXAMPLES=ON \
 		-DBUILD_PLUGIN_JETSON=ON \
-		-DBUILD_PLUGIN_VIRTIO=ON
+		-DBUILD_PLUGIN_VIRTIO=ON \
+		-DBUILD_PLUGIN_VSOCK=ON
 
 	# Build and install
 	cmake --build . --config ${BUILD_TYPE}

@@ -19,6 +19,12 @@ jobs:
         build_type: [Debug, Release]
 
     steps:
+    - name: Cleanup previous runs
+      run: |
+        ls ${{ github.workspace }} -lah
+        sudo rm -rf ${{ github.workspace }}/.??*
+        ls ${{ github.workspace }} -lah
+
     - uses: actions/checkout@v2
 
     - name: Setup vars
@@ -45,6 +51,11 @@ jobs:
         build_type: [Debug, Release]
 
     steps:
+    - name: Cleanup previous runs
+      run: |
+        sudo rm -rf ${{ github.workspace }}/.??*
+        sudo rm -f /tmp/vaccel.sock*
+
     - uses: actions/checkout@v2
 
     - name: Install packages
@@ -65,7 +76,7 @@ jobs:
         url: https://s3.nubificus.co.uk
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
-        local-path: /github/workspace
+        local-path: /github/workspace/artifacts/
         remote-path: nbfc-assets/github/vaccelrt/${{env.VACCELRT_SHA}}/${{ env.JOB_TYPE }}/opt
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
@@ -79,7 +90,7 @@ jobs:
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
         remote-path: nbfc-assets/github/firecracker/${{ env.FIRECRACKER_SHA }}/${{ steps.vars.outputs.firecracker_build_type }}/firecracker
-        local-path: /github/workspace/opt/bin/
+        local-path: /github/workspace/artifacts/opt/bin/
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
@@ -91,7 +102,7 @@ jobs:
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
         remote-path: nbfc-assets/github/virtio-accel/${{ env.VIRTIO_SHA }}/linux/vmlinux
-        local-path: /github/workspace/opt/share/
+        local-path: /github/workspace/artifacts/opt/share/
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
@@ -103,51 +114,77 @@ jobs:
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
         remote-path: nbfc-assets/github/virtio-accel/${{ env.VIRTIO_SHA }}/linux/virtio_accel.ko
-        local-path: /github/workspace/opt/share/
+        local-path: /github/workspace/artifacts/opt/share/
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
 
     - name: Create rootfs
       run: |
-        ls -lah ${{github.workspace}}/opt/bin/*
-        chmod u+x ${{ github.workspace }}/opt/bin/*
+        ls -lah ${{github.workspace}}
+        ls -lah ${{github.workspace}}/artifacts/*
+        ls -lah ${{github.workspace}}/artifacts/opt/*
+        ls -lah ${{github.workspace}}/artifacts/opt/bin/*
+        ls -lah ${{github.workspace}}/artifacts/opt/include/*
+        chmod u+x ${{ github.workspace }}/artifacts/opt/bin/*
         ./scripts/build_rootfs.sh \
                 --build_dir /tmp/rootfs_build \
-                --install_prefix ${{ github.workspace }}/opt \
+                --install_prefix ${{ github.workspace }}/artifacts/opt \
                 --base_image "ubuntu:latest" \
                 --dockerfiles_path "$(pwd)/dockerfiles"
 
     - name: Fetch imagenet models
       run: |
-        mkdir -p ${{ github.workspace }}/opt/share/networks
-        ./scripts/download-models.sh NO ${{ github.workspace }}/opt/share/networks
+        mkdir -p ${{ github.workspace }}/artifacts/opt/share/networks
+        ./scripts/download-models.sh NO ${{ github.workspace }}/artifacts/opt/share/networks
 
     - name: Create tap interface
       run: sudo ./scripts/create_tap.sh tapTestFc 172.42.0.1/24
 
     - name: Launch Firecracker
-      working-directory: ${{ github.workspace }}/opt
+      working-directory: ${{ github.workspace }}/artifacts/opt
       env:
-        LD_LIBRARY_PATH: ${{ github.workspace }}/opt/lib:/usr/local/lib:/usr/lib
-        VACCEL_BACKENDS: ${{ github.workspace }}/opt/lib/libvaccel-jetson.so
+        LD_LIBRARY_PATH: ${{ github.workspace }}/artifacts/opt/lib:/usr/local/lib:/usr/lib
+        VACCEL_BACKENDS: ${{ github.workspace }}/artifacts/opt/lib/libvaccel-jetson.so
+        VACCEL_DEBUG_LEVEL: 4
+        VACCEL_LOG_FILE: ${{ github.workspace }}/fc_vaccel.log
       run: |
         sudo rm -f /usr/local/share/imagenet-models/networks fc.sock
         sudo mkdir -p /usr/local/share/imagenet-models
         sudo chmod a+rw /usr/local/share/imagenet-models
-        ln -s ${{ github.workspace }}/opt/share/networks /usr/local/share/imagenet-models/networks
-        export VACCEL_BACKENDS=${{ github.workspace }}/opt/lib/libvaccel-jetson.so
+        ln -s ${{ github.workspace }}/artifacts/opt/share/networks /usr/local/share/imagenet-models/networks
+        export VACCEL_BACKENDS=${{ github.workspace }}/artifacts/opt/lib/libvaccel-jetson.so
         nohup ./bin/firecracker \
           --api-sock fc.sock \
-          --config-file ../conf/config_vaccel.json \
+          --config-file ${{ github.workspace }}/conf/config_vaccel.json \
           --seccomp-level 0 &
 
     - name: Test Firecracker is up
       run: ping -c 20 172.42.0.2
 
-    - name: Run classification
-      run: |
-        timeout 500 /bin/bash -c "until ssh -o StrictHostKeyChecking=no -i ${{ github.workspace }}/opt/share/fc_test root@172.42.0.2 LD_LIBRARY_PATH=/opt/vaccel/lib VACCEL_BACKENDS=/opt/vaccel/lib/libvaccel-virtio.so /opt/vaccel/bin/classify /root/images/dog_0.jpg 1 ; do sleep 2 ; done"
+    - name: Test virtio-accel
+      run: ./scripts/test_virtio.sh -i ${{ github.workspace }}/artifacts/opt/share/fc_test
 
-    - name: Cleanup
-      run: rm -rf ${{ github.workspace }}/*
+    - name: Checkout private tools
+      uses: actions/checkout@v2
+      with:
+        repository: cloudkernels/vaccelrt-agent
+        ref: feat_refactor
+        token: ${{ secrets.NBFC_BUILDER_TOKEN }} # `GitHub_PAT` is a secret that contains your PAT
+        path: vaccelrt-agent
+
+    - name: Cargo hack
+      run: |
+        sudo chmod a+w /opt/cargo -R
+
+    - name: Build and install agent
+      working-directory: ${{ github.workspace }}/vaccelrt-agent
+      env:
+        PKG_CONFIG_PATH: ${{ github.workspace }}/artifacts/opt/share/
+      run: |
+        sudo cp ${{ github.workspace }}/artifacts/opt/include/* /usr/include/
+        sudo cp ${{ github.workspace }}/artifacts/opt/lib/* /usr/lib/
+        cargo install --path .
+
+    - name: Test vsock plugin
+      run: ./scripts/test_vsock.sh -i ${{ github.workspace }}/artifacts/opt/share/fc_test -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-jetson.so
