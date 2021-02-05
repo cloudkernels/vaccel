@@ -16,6 +16,9 @@ DOCKERFILES_DIR=$(pwd)/dockerfiles
 # Build type
 BUILD_TYPE=debug
 
+# Use container to build
+CTR_BUILD=no
+
 # name for logging
 LOG_NAME="vaccel build"
 
@@ -35,7 +38,6 @@ prepare_build_env() {
 	mkdir -p $BUILD_DIR/$BUILD_TYPE
 }
 
-#Build VaccelRT
 runctr_vaccel_deps() {
 	docker run --rm -ti \
 	       -v $SOURCEDIR:$SOURCEDIR \
@@ -44,7 +46,8 @@ runctr_vaccel_deps() {
 	       nubificus/vaccel-deps:latest "$@"
 }
 
-build_vaccelrt_ctr() {
+# Build vAccelRT inside a container
+_build_vaccelrt_ctr() {
 	info "Calling VaccelRT script inside container"
 	runctr_vaccel_deps $SOURCEDIR/scripts/build_vaccelrt.sh \
 		--$BUILD_TYPE \
@@ -61,11 +64,16 @@ build_vaccelrt_ctr() {
 	ok_or_die "Could not fix permissions for vaccelrt"
 }
 
-build_vaccelrt() {
+# Build vAccelRT on host
+_build_vaccelrt_host() {
 	info "Calling VaccelRT script on host"
 	./scripts/build_vaccelrt.sh \
 		--build_dir $BUILD_DIR/$BUILD_TYPE \
 		--install_prefix $INSTALL_PREFIX/$BUILD_TYPE
+}
+
+build_vaccelrt() {
+	[ "$CTR_BUILD" == yes ] && _build_vaccelrt_ctr || _build_vaccelrt_host
 }
 
 #Build Firecracker
@@ -114,8 +122,9 @@ build_help() {
 	echo ""
 	echo "Arguments"
 	echo "    --release|--debug     Build release or debug versions. (default:--debug)"
-	echo "    --build_dir           The top-level build directory"
-	echo "    --install_dir         The directory to install output binaries"
+	echo "    --build_dir           The top-level build directory. (default: $(pwd)/build)"
+	echo "    --install_dir         The directory to install output binaries. (default: $(pwd)/output)"
+	echo "    -c|--ctr_build        Use container to build components, atm vAccelRT"
 	echo ""
 	echo "Available components to build:"
 	echo ""
@@ -151,6 +160,7 @@ main() {
 			--debug)        { BUILD_TYPE=debug;         };;
 			--build_dir)    { BUILD_DIR=$2; shift;      };;
 			--install_dir)  { INSTALL_PREFIX=$2; shift; };;
+			-c|--ctr_build) { CTR_BUILD=yes;            };;
 			-*)
 				die "Unkown argument: $1. Please use \`$0 help\`."
 				;;

@@ -32,6 +32,8 @@ build_fc() {
 
 	mkdir -p ${INSTALL_PREFIX}/bin
 	cp firecracker/build/cargo_target/x86_64-unknown-linux-gnu/$BUILD_TYPE/firecracker $INSTALL_PREFIX/bin
+	cp conf/config_virtio_accel.json $INSTALL_PREFIX/share/
+	cp conf/config_vsock.json $INSTALL_PREFIX/share/
 	ok_or_die "Could not copy firecracker binary to destination"
 
 	info "Copied firecracker binary to $INSTALL_PREFIX/bin"

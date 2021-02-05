@@ -111,7 +111,7 @@ build() {
 
 	cp rootfs.img ${INSTALL_PREFIX}/share/
 	cp fc_test* ${INSTALL_PREFIX}/share/
-	cp -r imagenet/networks ${INSTALL_PREFIX}/share/
+	cp -r imagenet/{networks,images} ${INSTALL_PREFIX}/share/
 }
 
 main() {
