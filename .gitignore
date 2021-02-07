@@ -56,5 +56,5 @@ dkms.conf
 .*.swo
 
 # repos output artifacts
-build
-output
+build*
+output*
