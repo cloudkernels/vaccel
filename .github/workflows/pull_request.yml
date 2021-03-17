@@ -8,16 +8,11 @@ on:
 
 jobs:
   prepare:
-    runs-on: [self-hosted, gpu, "${{ matrix.arch }}"]
+    runs-on: [self-hosted]
     outputs:
       vaccelrt_sha: ${{ steps.vars.outputs.vaccelrt_sha }}
       firecracker_sha: ${{ steps.vars.outputs.firecracker_sha }}
       virtio_accel_sha: ${{ steps.vars.outputs.virtio_accel_sha }}
-
-    strategy:
-      matrix:
-        build_type: [Debug, Release]
-        arch: [x86_64]
 
     steps:
     - name: Cleanup previous runs
