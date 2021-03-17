@@ -22,6 +22,7 @@ jobs:
     - name: Cleanup previous runs
       run: |
         ls ${{ github.workspace }} -lah
+        sudo rm -rf ${{ github.workspace }}/*
         sudo rm -rf ${{ github.workspace }}/.??*
         ls ${{ github.workspace }} -lah
 
@@ -53,6 +54,7 @@ jobs:
     steps:
     - name: Cleanup previous runs
       run: |
+        sudo rm -rf ${{ github.workspace }}/*
         sudo rm -rf ${{ github.workspace }}/.??*
         sudo rm -f /tmp/vaccel.sock*
 
