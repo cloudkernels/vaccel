@@ -8,7 +8,7 @@ on:
 
 jobs:
   prepare:
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu, "${{ matrix.arch }}"]
     outputs:
       vaccelrt_sha: ${{ steps.vars.outputs.vaccelrt_sha }}
       firecracker_sha: ${{ steps.vars.outputs.firecracker_sha }}
@@ -17,6 +17,7 @@ jobs:
     strategy:
       matrix:
         build_type: [Debug, Release]
+        arch: [x86_64]
 
     steps:
     - name: Cleanup previous runs
@@ -37,7 +38,7 @@ jobs:
 
   test:
     needs: prepare
-    runs-on: [self-hosted, gpu]
+    runs-on: [self-hosted, gpu, "${{ matrix.arch }}" ]
     env:
       NBFC_S3_ACCESS: ${{ secrets.AWS_ACCESS_KEY }}
       NBFC_S3_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -46,10 +47,12 @@ jobs:
       FIRECRACKER_TYPE: ${{ needs.prepare.outputs.firecracker_build_type }}
       VIRTIO_SHA: ${{ needs.prepare.outputs.virtio_accel_sha }}
       JOB_TYPE: ${{ matrix.build_type }}
+      ARCH: ${{ matrix.arch }}
 
     strategy:
       matrix:
         build_type: [Debug, Release]
+        arch: [x86_64, aarch64]
 
     steps:
     - name: Cleanup previous runs
@@ -79,7 +82,7 @@ jobs:
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
         local-path: /github/workspace/artifacts/
-        remote-path: nbfc-assets/github/vaccelrt/${{env.VACCELRT_SHA}}/${{ env.JOB_TYPE }}/opt
+        remote-path: nbfc-assets/github/vaccelrt/${{env.VACCELRT_SHA}}/${{env.ARCH}}/${{ env.JOB_TYPE }}/opt
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
@@ -91,7 +94,7 @@ jobs:
         url: https://s3.nubificus.co.uk
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
-        remote-path: nbfc-assets/github/firecracker/${{ env.FIRECRACKER_SHA }}/${{ steps.vars.outputs.firecracker_build_type }}/firecracker
+        remote-path: nbfc-assets/github/firecracker/${{ env.FIRECRACKER_SHA }}/${{env.ARCH}}/${{ steps.vars.outputs.firecracker_build_type }}/firecracker
         local-path: /github/workspace/artifacts/opt/bin/
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
@@ -103,7 +106,7 @@ jobs:
         url: https://s3.nubificus.co.uk
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
-        remote-path: nbfc-assets/github/virtio-accel/${{ env.VIRTIO_SHA }}/linux/vmlinux
+        remote-path: nbfc-assets/github/virtio-accel/${{ env.VIRTIO_SHA }}/${{env.ARCH}}/linux/vmlinux
         local-path: /github/workspace/artifacts/opt/share/
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
@@ -115,7 +118,7 @@ jobs:
         url: https://s3.nubificus.co.uk
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
-        remote-path: nbfc-assets/github/virtio-accel/${{ env.VIRTIO_SHA }}/linux/virtio_accel.ko
+        remote-path: nbfc-assets/github/virtio-accel/${{ env.VIRTIO_SHA }}/${{env.ARCH}}/linux/virtio_accel.ko
         local-path: /github/workspace/artifacts/opt/share/
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
