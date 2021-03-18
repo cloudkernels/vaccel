@@ -48,6 +48,7 @@ jobs:
       matrix:
         build_type: [Debug, Release]
         arch: [x86_64, aarch64]
+      fail-fast: false
 
     steps:
     - name: Cleanup previous runs
