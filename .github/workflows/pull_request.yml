@@ -154,11 +154,12 @@ jobs:
         sudo mkdir -p /usr/local/share/imagenet-models
         sudo chmod a+rw /usr/local/share/imagenet-models
         ln -s ${{ github.workspace }}/artifacts/opt/share/networks /usr/local/share/imagenet-models/networks
-        export VACCEL_BACKENDS=${{ github.workspace }}/artifacts/opt/lib/libvaccel-jetson.so
-        nohup ./bin/firecracker \
-          --api-sock fc.sock \
-          --config-file ${{ github.workspace }}/conf/config_vaccel.json \
-          --seccomp-level 0 &
+        sudo VACCEL_BACKENDS=${{ github.workspace }}/artifacts/opt/lib/libvaccel-jetson.so \
+          LD_LIBRARY_PATH=${{ github.workspace }}/artifacts/opt/lib:/usr/local/lib:/usr/lib \
+          nohup ./bin/firecracker \
+            --api-sock fc.sock \
+            --config-file ${{ github.workspace }}/conf/config_vaccel.json \
+            --seccomp-level 0 &
 
     - name: Test Firecracker is up
       run: ping -c 20 172.42.0.2
