@@ -171,7 +171,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         repository: cloudkernels/vaccelrt-agent
-        ref: feat_refactor
+        ref: master
         token: ${{ secrets.NBFC_BUILDER_TOKEN }} # `GitHub_PAT` is a secret that contains your PAT
         path: vaccelrt-agent
 
