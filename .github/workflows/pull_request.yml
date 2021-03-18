@@ -71,13 +71,13 @@ jobs:
         echo "::set-output name=gid::$(id -g)"
 
     - name: Fetch vaccelrt
-      uses: cloudkernels/minio-download@master
+      uses: cloudkernels/minio-download@v2
       with:
         url: https://s3.nubificus.co.uk
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
-        local-path: /github/workspace/artifacts/
-        remote-path: nbfc-assets/github/vaccelrt/${{env.VACCELRT_SHA}}/${{env.ARCH}}/${{ env.JOB_TYPE }}/opt
+        local-path: /github/workspace/artifacts/opt/
+        remote-path: nbfc-assets/github/vaccelrt/${{env.VACCELRT_SHA}}/${{env.ARCH}}/${{ env.JOB_TYPE }}/opt/
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
