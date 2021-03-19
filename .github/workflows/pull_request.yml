@@ -63,7 +63,7 @@ jobs:
     - name: Install packages
       run: |
         sudo apt update && sudo apt install -y \
-          subversion coreutils
+          subversion coreutils rsync iproute2 libfdt-dev
 
     - name: Setup vars
       id: vars
