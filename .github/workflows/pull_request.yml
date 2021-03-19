@@ -20,10 +20,8 @@ jobs:
     steps:
     - name: Cleanup previous runs
       run: |
-        ls ${{ github.workspace }} -lah
         sudo rm -rf ${{ github.workspace }}/*
         sudo rm -rf ${{ github.workspace }}/.??*
-        ls ${{ github.workspace }} -lah
 
     - uses: actions/checkout@v2
 
@@ -125,11 +123,8 @@ jobs:
 
     - name: Create rootfs
       run: |
-        ls -lah ${{github.workspace}}
-        ls -lah ${{github.workspace}}/artifacts/*
-        ls -lah ${{github.workspace}}/artifacts/opt/*
-        ls -lah ${{github.workspace}}/artifacts/opt/bin/*
-        ls -lah ${{github.workspace}}/artifacts/opt/include/*
+        # We need this because downloading from s3 messes up with
+        # file permissions
         chmod u+x ${{ github.workspace }}/artifacts/opt/bin/*
         ./scripts/build_rootfs.sh \
                 --build_dir /tmp/rootfs_build \
