@@ -133,9 +133,13 @@ jobs:
                 --dockerfiles_path "$(pwd)/dockerfiles"
 
     - name: Fetch imagenet models
-      run: |
-        mkdir -p ${{ github.workspace }}/artifacts/opt/share/networks
-        ./scripts/download-models.sh NO ${{ github.workspace }}/artifacts/opt/share/networks
+      uses: cloudkernels/minio-download@v2
+      with:
+        url: https://s3.nubificus.co.uk
+        access-key: ${{ env.NBFC_S3_ACCESS }}
+        secret-key: ${{ env.NBFC_S3_SECRET }}
+        remote-path: imagenet/networks/
+        local-path: /github/workspace/artifacts/opt/share/networks
 
     - name: Create tap interface
       run: sudo ./scripts/create_tap.sh tapTestFc 172.42.0.1/24
