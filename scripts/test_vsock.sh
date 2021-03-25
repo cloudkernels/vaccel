@@ -46,7 +46,7 @@ print_help() {
 
 launch_agent() {
 	info "Running agent with plugin: $PLUGIN"
-	VACCEL_LOG_FILE=agent_vaccel.log VACCEL_DEBUG_LEVEL=4 VACCEL_BACKENDS=$PLUGIN vaccelrt-agent -a $VACCEL_UNIX &
+	VACCEL_DEBUG_LEVEL=4 VACCEL_BACKENDS=$PLUGIN vaccelrt-agent -a $VACCEL_UNIX &
 }
 
 run_test() {
@@ -59,8 +59,7 @@ run_test() {
 	launch_agent
 	ok_or_die "Could not launch agent"
 
-	timeout 500 /bin/bash -c \
-		"until ssh -o StrictHostKeyChecking=no -i $SSH_KEY root@$FC_IP $in_fc_cmd ; do sleep 2; done"
+	ssh -o StrictHostKeyChecking=no -i $SSH_KEY root@$FC_IP $in_fc_cmd
 }
 
 main() {

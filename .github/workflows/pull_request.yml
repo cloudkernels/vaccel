@@ -52,12 +52,6 @@ jobs:
       fail-fast: false
 
     steps:
-    - name: Cleanup previous runs
-      run: |
-        sudo rm -rf ${{ github.workspace }}/*
-        sudo rm -rf ${{ github.workspace }}/.??*
-        sudo rm -f /tmp/vaccel.sock*
-
     - uses: actions/checkout@v2
 
     - name: Install packages
@@ -146,11 +140,6 @@ jobs:
 
     - name: Launch Firecracker
       working-directory: ${{ github.workspace }}/artifacts/opt
-      env:
-        LD_LIBRARY_PATH: ${{ github.workspace }}/artifacts/opt/lib:/usr/local/lib:/usr/lib
-        VACCEL_BACKENDS: ${{ github.workspace }}/artifacts/opt/lib/libvaccel-jetson.so
-        VACCEL_DEBUG_LEVEL: 4
-        VACCEL_LOG_FILE: ${{ github.workspace }}/fc_vaccel.log
       run: |
         sudo rm -f /usr/local/share/imagenet-models/networks fc.sock
         sudo mkdir -p /usr/local/share/imagenet-models
@@ -158,13 +147,25 @@ jobs:
         ln -s ${{ github.workspace }}/artifacts/opt/share/networks /usr/local/share/imagenet-models/networks
         sudo VACCEL_BACKENDS=${{ github.workspace }}/artifacts/opt/lib/libvaccel-jetson.so \
           LD_LIBRARY_PATH=${{ github.workspace }}/artifacts/opt/lib:/usr/local/lib:/usr/lib \
-          nohup ./bin/firecracker \
+          VACCEL_DEBUG_LEVEL=4 \
+          ./bin/firecracker \
             --api-sock fc.sock \
             --config-file ${{ github.workspace }}/conf/config_vaccel.json \
             --seccomp-level 0 &
 
     - name: Test Firecracker is up
       run: ping -c 20 172.42.0.2
+
+    - name: Test Firecracker ssh
+      timeout-minutes: 2
+      shell: bash {0}
+      run: |
+        while true
+        do
+          name=$(ssh -o StrictHostKeyChecking=no -i artifacts/opt/share/fc_test root@172.42.0.2 hostname -s)
+          if [[ $name == "vaccel-guest" ]]; then exit 0; fi
+        done
+        exit 1
 
     - name: Test virtio-accel
       run: ./scripts/test_virtio.sh -i ${{ github.workspace }}/artifacts/opt/share/fc_test
@@ -192,3 +193,21 @@ jobs:
 
     - name: Test vsock plugin
       run: ./scripts/test_vsock.sh -i ${{ github.workspace }}/artifacts/opt/share/fc_test -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-jetson.so
+
+    - name: Cleanup run
+      if: ${{ always() }}
+      run: |
+        sudo rm -rf ${{ github.workspace }}/*
+        sudo rm -rf ${{ github.workspace }}/.??*
+        sudo rm -f /tmp/vaccel.sock*
+        fc_pid=$(ps aux | grep -m 1 [f]irecracker | awk '{print $2}')
+        while true
+        do
+          fc_pid=$(ps aux | grep -m 1 [f]irecracker | awk '{print $2}')
+          if [[ $fc_pid == "" ]]; then break; fi
+          echo "Killing Firecracker (pid: $fc_pid)"
+          sudo kill -9 $fc_pid
+          # Wait for it to actually die
+          sleep 2
+        done
+        sudo ip tuntap del tapTestFc mode tap
