@@ -55,7 +55,8 @@ build() {
 		-DBUILD_EXAMPLES=ON \
 		-DBUILD_PLUGIN_JETSON=ON \
 		-DBUILD_PLUGIN_VIRTIO=ON \
-		-DBUILD_PLUGIN_VSOCK=ON
+		-DBUILD_PLUGIN_VSOCK=ON \
+		-DENABLE_TESTS=ON
 
 	# Build and install
 	cmake --build . --config ${BUILD_TYPE}

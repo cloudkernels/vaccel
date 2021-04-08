@@ -47,6 +47,9 @@ print_help() {
 launch_agent() {
 	info "Running agent with plugin: $PLUGIN"
 	VACCEL_DEBUG_LEVEL=4 VACCEL_BACKENDS=$PLUGIN vaccelrt-agent -a $VACCEL_UNIX &
+
+	# Wait a couple of seconds to let the agent start
+	sleep 2
 }
 
 run_test() {

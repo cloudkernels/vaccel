@@ -187,7 +187,7 @@ jobs:
       env:
         PKG_CONFIG_PATH: ${{ github.workspace }}/artifacts/opt/share/
       run: |
-        sudo cp ${{ github.workspace }}/artifacts/opt/include/* /usr/include/
+        sudo cp -r ${{ github.workspace }}/artifacts/opt/include/* /usr/include/
         sudo cp ${{ github.workspace }}/artifacts/opt/lib/* /usr/lib/
         cargo install --path .
 
