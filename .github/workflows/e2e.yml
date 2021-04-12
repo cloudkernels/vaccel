@@ -1,4 +1,4 @@
-name: Test e2e Pull Request
+name: Test e2e vAccel
 
 on:
   pull_request:
@@ -194,6 +194,27 @@ jobs:
     - name: Test vsock plugin
       run: ./scripts/test_vsock.sh -i ${{ github.workspace }}/artifacts/opt/share/fc_test -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-jetson.so
 
+    - name: Pack latest release
+      if: ${{ github.event_name == 'push' }}
+      working-directory: ${{ github.workspace }}/artifacts/opt
+      run: |
+        cp ${{github.workspace}}/conf/{config_virtio_accel.json,config_vsock.json} share/
+        zip -r ${{github.workspace}}/vaccel_${{matrix.arch}}_${{matrix.build_type}}.zip bin/ include/ lib/ \
+          share/config_virtio_accel.json share/config_vsock.json \
+          share/fc_test share/fc_test.pub \
+          share/rootfs.img share/virtio_accel.ko share/vmlinux \
+          share/vaccel.pc
+
+    - name: Upload latest master release to s3
+      if: ${{ github.event_name == 'push' }}
+      uses: cloudkernels/minio-upload@master
+      with:
+        url: https://s3.nubificus.co.uk
+        access-key: ${{ env.NBFC_S3_ACCESS }}
+        secret-key: ${{ env.NBFC_S3_SECRET }}
+        remote-path: nbfc-assets/github/vaccel/master/${{env.ARCH}}/${{env.JOB_TYPE}}/
+        local-path: /github/workspace/vaccel_${{matrix.arch}}_${{matrix.build_type}}.zip
+
     - name: Cleanup run
       if: ${{ always() }}
       run: |
@@ -211,3 +232,45 @@ jobs:
           sleep 2
         done
         sudo ip tuntap del tapTestFc mode tap
+
+  update_latest_release:
+    needs: test
+    runs-on: [self-hosted]
+    env:
+      NBFC_S3_ACCESS: ${{ secrets.AWS_ACCESS_KEY }}
+      NBFC_S3_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    steps:
+
+    - name: Setup vars
+      id: vars
+      run: |
+        echo "::set-output name=uid::$(id -u)"
+        echo "::set-output name=gid::$(id -g)"
+
+    - name: Download artifacts
+      if: ${{ github.event_name == 'push' }}
+      uses: cloudkernels/minio-download@master
+      with:
+        url: https://s3.nubificus.co.uk
+        access-key: ${{ env.NBFC_S3_ACCESS }}
+        secret-key: ${{ env.NBFC_S3_SECRET }}
+        remote-path: nbfc-assets/github/vaccel/master/
+        local-path: /github/workspace/master/
+      env:
+        ACTION_UID: ${{ steps.vars.outputs.uid }}
+        ACTION_GID: ${{ steps.vars.outputs.gid }}
+
+    - name: Update the release
+      if: ${{ github.event_name == 'push' }}
+      uses: marvinpinto/action-automatic-releases@latest
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        automatic_release_tag: "latest"
+        prerelease: true
+        title: "Latest master build"
+        files: |
+          master/vaccel_x86_64_Debug.zip
+          master/vaccel_x86_64_Release.zip
+          master/vaccel_aarch64_Debug.zip
+          master/vaccel_aarch64_Release.zip
