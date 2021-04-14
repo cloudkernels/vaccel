@@ -199,6 +199,7 @@ jobs:
       working-directory: ${{ github.workspace }}/artifacts/opt
       run: |
         cp ${{github.workspace}}/conf/{config_virtio_accel.json,config_vsock.json} share/
+        cp /opt/cargo/bin/vaccelrt-agent bin/
         zip -r ${{github.workspace}}/vaccel_${{matrix.arch}}_${{matrix.build_type}}.zip bin/ include/ lib/ \
           share/config_virtio_accel.json share/config_vsock.json \
           share/fc_test share/fc_test.pub \
