@@ -31,12 +31,14 @@ RUN echo "export VACCEL_BACKENDS=/opt/vaccel/lib/libvaccel-virtio.so" >> /root/.
 
 # Enable ssh server
 RUN systemctl enable ssh
-COPY fc_test.pub id_rsa.pub
-RUN mkdir /root/.ssh/ && \
-    cat id_rsa.pub >> /root/.ssh/authorized_keys && \
-    chmod 0700 /root/.ssh && \
-    chmod 0600 /root/.ssh/authorized_keys && \
-    chown -R root:root /root/.ssh
+#COPY fc_test.pub id_rsa.pub
+RUN echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
+RUN echo "PermitEmptyPasswords yes" >> /etc/ssh/sshd_config
+#RUN mkdir /root/.ssh/ && \
+#    cat id_rsa.pub >> /root/.ssh/authorized_keys && \
+#    chmod 0700 /root/.ssh && \
+#    chmod 0600 /root/.ssh/authorized_keys && \
+#    chown -R root:root /root/.ssh
 
 # Disable root password
 RUN sed s/root\:x\:/root\:\:/ -i /etc/passwd

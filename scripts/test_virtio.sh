@@ -13,7 +13,7 @@ SSH_TIMEOUT=300
 FC_IP="172.42.0.2"
 
 # Path to ssh private key
-SSH_KEY=$(pwd)/opt/share/fc_test
+#SSH_KEY=$(pwd)/opt/share/fc_test
 
 # script name for logging
 LOG_NAME="$(basename $0)"
@@ -28,7 +28,7 @@ print_help() {
 	echo "    -v|--vaccel     Directory of vAccel installation (default: '/opt/vaccel')"
 	echo "    -t|--timeout    Timeout in seconds to wait response from Firecracker (default: 300)"
 	echo "    -a|--ip-address Address of Firecracker VM"
-	echo "    -i|--ssh-key    RSA key to use for SSHing inside the VM"
+	echo "    -i|--ssh-key    RSA key to use for SSHing inside the VM (not currently used)"
 	echo ""
 }
 
@@ -37,7 +37,8 @@ run_test() {
 	in_fc_cmd="$in_fc_cmd VACCEL_BACKENDS=$VACCEL_PATH/lib/libvaccel-virtio.so"
 	in_fc_cmd="$in_fc_cmd $VACCEL_PATH/bin/classify /root/images/dog_0.jpg 1"
 
-	ssh -o StrictHostKeyChecking=no -i $SSH_KEY root@$FC_IP $in_fc_cmd
+	ssh -o StrictHostKeyChecking=no -o GlobalKnownHostsFile=/dev/null \
+		-o UserKnownHostsFile=/dev/null root@$FC_IP $in_fc_cmd
 }
 
 main() {
