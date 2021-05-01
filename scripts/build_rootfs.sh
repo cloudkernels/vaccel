@@ -77,10 +77,10 @@ build() {
 	cd ${BUILD_DIR}/rootfs
 
 	# Create RSA key to rootfs
-	ssh-keygen -t rsa -f fc_test -N ""
+	#ssh-keygen -t rsa -f fc_test -N ""
 
 	# Create root filesystem
-	DOCKER_BUILDKIT=1 docker build \
+	DOCKER_BUILDKIT=1 docker build --no-cache \
 		--network=host \
 		-t vaccel-rootfs \
 		--build-arg "KERNEL_VERSION=4.20.0" \
@@ -96,7 +96,7 @@ build() {
 	sudo mount rootfs.img $mnt
 	ok_or_die "Could not mount rootfs"
 
-	sudo rsync -aogxvPH rootfs/* $mnt
+	sudo rsync -aogxPH rootfs/* $mnt
 	sudo chown -R root:root $mnt/root
 	ok_or_die "Could not populate rootfs"
 
@@ -110,7 +110,7 @@ build() {
 	sudo rmdir $mnt
 
 	cp rootfs.img ${INSTALL_PREFIX}/share/
-	cp fc_test* ${INSTALL_PREFIX}/share/
+	#cp fc_test* ${INSTALL_PREFIX}/share/
 	cp -r imagenet/{networks,images} ${INSTALL_PREFIX}/share/
 }
 
