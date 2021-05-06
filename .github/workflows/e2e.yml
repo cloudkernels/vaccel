@@ -160,6 +160,8 @@ jobs:
                 sudo cp ${{ github.workspace }}/virtio-accel/virtio_accel.ko $MODULES_DIR
                 sudo touch ${MODULES_DIR}/modules.builtin
                 sudo touch ${MODULES_DIR}/modules.order
+                echo "virtio_accel" > viriot_accel.conf
+                sudo cp virtio_accel.conf ${ROOTFS_DIR}/etc/modules-load.d/
                 sudo chroot ${ROOTFS_DIR} /sbin/depmod $VERSION
                 cd ../image-builder
                 script -fec 'sudo bash -x ./image_builder.sh $ROOTFS_DIR'
