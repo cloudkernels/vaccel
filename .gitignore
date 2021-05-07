@@ -58,3 +58,6 @@ dkms.conf
 # repos output artifacts
 build*
 output*
+
+# Compilation cache
+**.ccls-cache/
