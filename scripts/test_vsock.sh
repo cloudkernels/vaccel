@@ -24,6 +24,12 @@ VACCEL_UNIX="unix:///tmp/vaccel.sock_2048"
 # plugin to use for agent
 PLUGIN="libvaccel-jetson.so"
 
+# Agent binary prefix
+AGENT_PREFIX="/opt/cargo/bin"
+
+# Agent PID
+AGENT_PID=
+
 # script name for logging
 LOG_NAME="$(basename $0)"
 
@@ -46,10 +52,15 @@ print_help() {
 
 launch_agent() {
 	info "Running agent with plugin: $PLUGIN"
-	VACCEL_DEBUG_LEVEL=4 VACCEL_BACKENDS=$PLUGIN vaccelrt-agent -a $VACCEL_UNIX &
+	VACCEL_DEBUG_LEVEL=4 VACCEL_BACKENDS=$PLUGIN $AGENT_PREFIX/vaccelrt-agent -a $VACCEL_UNIX &
+	AGENT_PID=$!
 
 	# Wait a couple of seconds to let the agent start
 	sleep 2
+}
+
+kill_agent() {
+	kill -9 $AGENT_PID
 }
 
 run_test() {
@@ -63,6 +74,11 @@ run_test() {
 	ok_or_die "Could not launch agent"
 
 	ssh -o StrictHostKeyChecking=no -i $SSH_KEY root@$FC_IP $in_fc_cmd
+	retval=$?
+
+	kill_agent
+
+	exit $retval
 }
 
 main() {
@@ -74,6 +90,7 @@ main() {
 			-a|--ip-address)  { FC_IP=$2; shift;        };;
 			-i|--ssh-key)     { SSH_KEY=$2; shift;      };;
 			-p|--plugin)      { PLUGIN=$2; shift;       };;
+			--agent-prefix)   { AGENT_PREFIX=$2; shift; };;
 			--vsock)          { VACCEL_VSOCK=$2; shift; };;
 			--unix)           { VACCEL_UNIX=$2; shift;  };;
 			*)

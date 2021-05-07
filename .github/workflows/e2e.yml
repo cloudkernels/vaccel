@@ -215,7 +215,8 @@ jobs:
         cargo install --path .
 
     - name: Test vsock plugin
-      run: ./scripts/test_vsock.sh -i ${{ github.workspace }}/artifacts/opt/share/fc_test -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so
+      run: |
+        sudo ./scripts/test_vsock.sh -i ${{ github.workspace }}/artifacts/opt/share/fc_test -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so
 
     - name: Pack latest release
       if: ${{ github.event_name == 'push' }}
