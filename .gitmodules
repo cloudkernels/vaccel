@@ -16,3 +16,12 @@
 [submodule "agent"]
 	path = agent
 	url = git@github.com:cloudkernels/vaccelrt-agent
+[submodule "plugins/vaccelrt-plugin-vsock"]
+	path = plugins/vaccelrt-plugin-vsock
+	url = git@github.com:nubificus/vaccelrt-plugin-vsock.git
+[submodule "plugins/vaccelrt-plugin-virtio"]
+	path = plugins/vaccelrt-plugin-virtio
+	url = git@github.com:nubificus/vaccelrt-plugin-virtio.git
+[submodule "plugins/vaccelrt-plugin-jetson"]
+	path = plugins/vaccelrt-plugin-jetson
+	url = git@github.com:nubificus/vaccelrt-plugin-jetson.git

@@ -16,6 +16,10 @@ jobs:
       vaccelrt_sha: ${{ steps.vars.outputs.vaccelrt_sha }}
       firecracker_sha: ${{ steps.vars.outputs.firecracker_sha }}
       virtio_accel_sha: ${{ steps.vars.outputs.virtio_accel_sha }}
+      vsock_plugin_sha: ${{ steps.vars.outputs.vsock_plugin_sha }}
+      virtio_plugin_sha: ${{ steps.vars.outputs.virtio_plugin_sha }}
+      jetson_plugin_sha: ${{ steps.vars.outputs.jetson_plugin_sha }}
+      agent_sha: ${{ steps.vars.outputs.agent_sha }}
 
     steps:
     - name: Cleanup previous runs
@@ -31,10 +35,14 @@ jobs:
         echo "::set-output name=vaccelrt_sha::$(git ls-tree ${{ github.sha }} | grep vaccelrt | awk '{print $3}')"
         echo "::set-output name=firecracker_sha::$(git ls-tree ${{ github.sha }} | grep firecracker | awk '{print $3}')"
         echo "::set-output name=virtio_accel_sha::$(git ls-tree ${{ github.sha }} | grep virtio-accel | awk '{print $3}')"
+        echo "::set-output name=vsock_plugin_sha::$(git ls-tree ${{ github.sha }} plugins/vaccelrt-plugin-vsock | awk '{print $3}')"
+        echo "::set-output name=virtio_plugin_sha::$(git ls-tree ${{ github.sha }} plugins/vaccelrt-plugin-virtio | awk '{print $3}')"
+        echo "::set-output name=jetson_plugin_sha::$(git ls-tree ${{ github.sha }} plugins/vaccelrt-plugin-jetson | awk '{print $3}')"
+        echo "::set-output name=agent_sha::$(git ls-tree ${{ github.sha }} agent | awk '{print $3}')"
 
   test:
     needs: prepare
-    runs-on: [self-hosted, gpu, "${{ matrix.arch }}" ]
+    runs-on: [self-hosted, "${{ matrix.arch }}" ]
     env:
       NBFC_S3_ACCESS: ${{ secrets.AWS_ACCESS_KEY }}
       NBFC_S3_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -42,6 +50,8 @@ jobs:
       FIRECRACKER_SHA: ${{ needs.prepare.outputs.firecracker_sha }}
       FIRECRACKER_TYPE: ${{ needs.prepare.outputs.firecracker_build_type }}
       VIRTIO_SHA: ${{ needs.prepare.outputs.virtio_accel_sha }}
+      VIRTIO_PLUGIN_SHA: ${{ needs.prepare.outputs.virtio_plugin_sha }}
+      VSOCK_PLUGIN_SHA: ${{ needs.prepare.outputs.vsock_plugin_sha }}
       JOB_TYPE: ${{ matrix.build_type }}
       ARCH: ${{ matrix.arch }}
 
@@ -115,6 +125,31 @@ jobs:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
 
+    - name: Fetch virtio-plugin
+      uses: cloudkernels/minio-download@v2
+      with:
+        url: https://s3.nubificus.co.uk
+        access-key: ${{ env.NBFC_S3_ACCESS }}
+        secret-key: ${{ env.NBFC_S3_SECRET }}
+        local-path: /github/workspace/artifacts/opt/lib/
+        remote-path: nbfc-assets/github/virtio-plugin/${{env.VIRTIO_PLUGIN_SHA}}/${{env.ARCH}}/${{ env.JOB_TYPE }}/libvaccel-virtio.so
+      env:
+        ACTION_UID: ${{ steps.vars.outputs.uid }}
+        ACTION_GID: ${{ steps.vars.outputs.gid }}
+
+    - name: Fetch vsock-plugin
+      uses: cloudkernels/minio-download@v2
+      with:
+        url: https://s3.nubificus.co.uk
+        access-key: ${{ env.NBFC_S3_ACCESS }}
+        secret-key: ${{ env.NBFC_S3_SECRET }}
+        local-path: /github/workspace/artifacts/opt/lib/
+        remote-path: nbfc-assets/github/vsock-plugin/${{env.VSOCK_PLUGIN_SHA}}/${{env.ARCH}}/${{ env.JOB_TYPE }}/libvaccel-vsock.so
+      env:
+        ACTION_UID: ${{ steps.vars.outputs.uid }}
+        ACTION_GID: ${{ steps.vars.outputs.gid }}
+
+
     - name: Create rootfs
       run: |
         # We need this because downloading from s3 messes up with
@@ -126,26 +161,14 @@ jobs:
                 --base_image "ubuntu:latest" \
                 --dockerfiles_path "$(pwd)/dockerfiles"
 
-    - name: Fetch imagenet models
-      uses: cloudkernels/minio-download@v2
-      with:
-        url: https://s3.nubificus.co.uk
-        access-key: ${{ env.NBFC_S3_ACCESS }}
-        secret-key: ${{ env.NBFC_S3_SECRET }}
-        remote-path: imagenet/networks/
-        local-path: /github/workspace/artifacts/opt/share/networks
-
     - name: Create tap interface
       run: sudo ./scripts/create_tap.sh tapTestFc 172.42.0.1/24
 
     - name: Launch Firecracker
       working-directory: ${{ github.workspace }}/artifacts/opt
       run: |
-        sudo rm -f /usr/local/share/imagenet-models/networks fc.sock
-        sudo mkdir -p /usr/local/share/imagenet-models
-        sudo chmod a+rw /usr/local/share/imagenet-models
-        ln -s ${{ github.workspace }}/artifacts/opt/share/networks /usr/local/share/imagenet-models/networks
-        sudo VACCEL_BACKENDS=${{ github.workspace }}/artifacts/opt/lib/libvaccel-jetson.so \
+        sudo rm -f fc.sock
+        sudo VACCEL_BACKENDS=${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so \
           LD_LIBRARY_PATH=${{ github.workspace }}/artifacts/opt/lib:/usr/local/lib:/usr/lib \
           VACCEL_DEBUG_LEVEL=4 \
           ./bin/firecracker \
@@ -174,7 +197,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         repository: cloudkernels/vaccelrt-agent
-        ref: master
+        ref: ${{ needs.prepare.outputs.agent_sha }}
         token: ${{ secrets.NBFC_BUILDER_TOKEN }} # `GitHub_PAT` is a secret that contains your PAT
         path: vaccelrt-agent
 
@@ -192,7 +215,8 @@ jobs:
         cargo install --path .
 
     - name: Test vsock plugin
-      run: ./scripts/test_vsock.sh -i ${{ github.workspace }}/artifacts/opt/share/fc_test -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-jetson.so
+      run: |
+        sudo ./scripts/test_vsock.sh -i ${{ github.workspace }}/artifacts/opt/share/fc_test -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so
 
     - name: Pack latest release
       if: ${{ github.event_name == 'push' }}
