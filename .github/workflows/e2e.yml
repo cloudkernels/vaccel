@@ -149,7 +149,7 @@ jobs:
         git checkout fix_kzfree
         KDIR=${{ github.workspace }}/kata-containers/tools/packaging/kernel/kata-linux*/ make ZC=0 ARCH=$ARCH_KERNEL
         sudo cp virtio_accel.ko ${{ github.workspace }}/artifacts/opt/share/virtio_accel-kata.ko
-        if [[ $ARCHITECTURE == "x86_64" ]]
+        if [[ $ARCHITECTURE != "blah" ]]
         then
                 cd ${{ github.workspace }}/kata-containers/tools/osbuilder/rootfs-builder/
                 export ROOTFS_DIR=$PWD/rootfs
@@ -160,7 +160,7 @@ jobs:
                 sudo cp ${{ github.workspace }}/virtio-accel/virtio_accel.ko $MODULES_DIR
                 sudo touch ${MODULES_DIR}/modules.builtin
                 sudo touch ${MODULES_DIR}/modules.order
-                echo "virtio_accel" > viriot_accel.conf
+                echo "virtio_accel" > virtio_accel.conf
                 sudo cp virtio_accel.conf ${ROOTFS_DIR}/etc/modules-load.d/
                 sudo chroot ${ROOTFS_DIR} /sbin/depmod $VERSION
                 cd ../image-builder
@@ -295,11 +295,46 @@ jobs:
             -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so \
             --agent-prefix ${{ github.workspace }}/artifacts/opt/bin
 
+    - name: Checkout private tools
+      uses: actions/checkout@v2
+      with:
+        repository: cloudkernels/vaccelrt-agent
+        ref: ${{ needs.prepare.outputs.agent_sha }}
+        token: ${{ secrets.NBFC_BUILDER_TOKEN }} # `GitHub_PAT` is a secret that contains your PAT
+        path: vaccelrt-agent
+
+    - name: Cargo hack
+      run: |
+        sudo chmod a+w /opt/cargo -R
+
+    - name: Build and install agent
+      working-directory: ${{ github.workspace }}/vaccelrt-agent
+      env:
+        PKG_CONFIG_PATH: ${{ github.workspace }}/artifacts/opt/share/
+      run: |
+        if [[ $ARCHITECTURE == "x86_64" ]]
+        then
+          sudo cp -r ${{ github.workspace }}/artifacts/opt/include/* /usr/include/
+          sudo cp ${{ github.workspace }}/artifacts/opt/lib/* /usr/lib/
+          cargo install --path .
+        fi
+
+    - name: Test vsock plugin
+      run: |
+        if [[ $ARCHITECTURE == "x86_64" ]]
+        then
+          ./scripts/test_vsock.sh -i ${{ github.workspace }}/artifacts/opt/share/fc_test -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so
+        fi
+        
     - name: Pack latest release
       if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' && github.ref == 'refs/heads/master' }}
       working-directory: ${{ github.workspace }}/artifacts/opt
       run: |
         cp ${{github.workspace}}/conf/{config_virtio_accel.json,config_vsock.json} share/
+        if [[ $ARCHITECTURE == "x86_64" ]]
+        then
+             cp /opt/cargo/bin/vaccelrt-agent bin/
+        fi
         zip -r ${{github.workspace}}/vaccel_${{matrix.arch}}_${{matrix.build_type}}.zip bin/ include/ lib/ \
           share/config_virtio_accel.json share/config_vsock.json \
           share/rootfs.img share/virtio_accel.ko share/vmlinux \
