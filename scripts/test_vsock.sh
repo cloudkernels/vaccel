@@ -45,6 +45,7 @@ print_help() {
 	echo "    -a|--ip-address Address of Firecracker VM"
 	echo "    -i|--ssh-key    RSA key to use for SSHing inside the VM"
 	echo "    -p|--plugin     Plugin to use for agent"
+	echo "    --agent-prefix  Location of the agent binary"
 	echo "    --vsock         Vsock socket to use inside the VM"
 	echo "    --unix          Unix socket to use on host"
 	echo ""
