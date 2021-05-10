@@ -42,16 +42,16 @@ jobs:
 
   test:
     needs: prepare
-    runs-on: [self-hosted, "${{ matrix.arch }}" ]
+    runs-on: [self-hosted, cloud, "${{ matrix.arch }}" ]
     env:
       NBFC_S3_ACCESS: ${{ secrets.AWS_ACCESS_KEY }}
       NBFC_S3_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       VACCELRT_SHA: ${{needs.prepare.outputs.vaccelrt_sha}}
       FIRECRACKER_SHA: ${{ needs.prepare.outputs.firecracker_sha }}
-      FIRECRACKER_TYPE: ${{ needs.prepare.outputs.firecracker_build_type }}
       VIRTIO_SHA: ${{ needs.prepare.outputs.virtio_accel_sha }}
       VIRTIO_PLUGIN_SHA: ${{ needs.prepare.outputs.virtio_plugin_sha }}
       VSOCK_PLUGIN_SHA: ${{ needs.prepare.outputs.vsock_plugin_sha }}
+      AGENT_SHA: ${{ needs.prepare.outputs.agent_sha }}
       JOB_TYPE: ${{ matrix.build_type }}
       ARCH: ${{ matrix.arch }}
 
@@ -73,6 +73,7 @@ jobs:
       id: vars
       run: |
         echo "::set-output name=firecracker_build_type::$(echo ${{ matrix.build_type }} | awk '{print tolower($0)}')"
+        echo "::set-output name=agent_build_type::$(echo ${{ matrix.build_type }} | awk '{print tolower($0)}')"
         echo "::set-output name=uid::$(id -u)"
         echo "::set-output name=gid::$(id -g)"
 
@@ -149,6 +150,17 @@ jobs:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
 
+    - name: Fetch vAccel Agent
+      uses: cloudkernels/minio-download@v2
+      with:
+        url: https://s3.nubificus.co.uk
+        access-key: ${{ env.NBFC_S3_ACCESS }}
+        secret-key: ${{ env.NBFC_S3_SECRET }}
+        local-path: /github/workspace/artifacts/opt/bin/
+        remote-path: nbfc-assets/github/vaccel-agent/${{env.AGENT_SHA}}/${{env.ARCH}}/${{ steps.vars.outputs.agent_build_type }}/vaccelrt-agent
+      env:
+        ACTION_UID: ${{ steps.vars.outputs.uid }}
+        ACTION_GID: ${{ steps.vars.outputs.gid }}
 
     - name: Create rootfs
       run: |
@@ -193,37 +205,19 @@ jobs:
     - name: Test virtio-accel
       run: ./scripts/test_virtio.sh -i ${{ github.workspace }}/artifacts/opt/share/fc_test
 
-    - name: Checkout private tools
-      uses: actions/checkout@v2
-      with:
-        repository: cloudkernels/vaccelrt-agent
-        ref: ${{ needs.prepare.outputs.agent_sha }}
-        token: ${{ secrets.NBFC_BUILDER_TOKEN }} # `GitHub_PAT` is a secret that contains your PAT
-        path: vaccelrt-agent
-
-    - name: Cargo hack
-      run: |
-        sudo chmod a+w /opt/cargo -R
-
-    - name: Build and install agent
-      working-directory: ${{ github.workspace }}/vaccelrt-agent
-      env:
-        PKG_CONFIG_PATH: ${{ github.workspace }}/artifacts/opt/share/
-      run: |
-        sudo cp -r ${{ github.workspace }}/artifacts/opt/include/* /usr/include/
-        sudo cp ${{ github.workspace }}/artifacts/opt/lib/* /usr/lib/
-        cargo install --path .
-
     - name: Test vsock plugin
       run: |
-        sudo ./scripts/test_vsock.sh -i ${{ github.workspace }}/artifacts/opt/share/fc_test -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so
+        sudo LD_LIBRARY_PATH=${{ github.workspace }}/lib \
+          ./scripts/test_vsock.sh \
+            -i ${{ github.workspace }}/artifacts/opt/share/fc_test \
+            -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so \
+            --agent-prefix ${{ github.workspace }}/artifacts/opt/bin
 
     - name: Pack latest release
       if: ${{ github.event_name == 'push' }}
       working-directory: ${{ github.workspace }}/artifacts/opt
       run: |
         cp ${{github.workspace}}/conf/{config_virtio_accel.json,config_vsock.json} share/
-        cp /opt/cargo/bin/vaccelrt-agent bin/
         zip -r ${{github.workspace}}/vaccel_${{matrix.arch}}_${{matrix.build_type}}.zip bin/ include/ lib/ \
           share/config_virtio_accel.json share/config_vsock.json \
           share/fc_test share/fc_test.pub \
