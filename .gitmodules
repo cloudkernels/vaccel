@@ -25,3 +25,6 @@
 [submodule "plugins/vaccelrt-plugin-jetson"]
 	path = plugins/vaccelrt-plugin-jetson
 	url = git@github.com:nubificus/vaccelrt-plugin-jetson.git
+[submodule "bindings/rust-bindings"]
+	path = bindings/rust-bindings
+	url = git@github.com:cloudkernels/vaccel-bindings.git
