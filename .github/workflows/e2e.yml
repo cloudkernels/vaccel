@@ -211,7 +211,7 @@ jobs:
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
         local-path: /github/workspace/artifacts/opt/lib/
-        remote-path: nbfc-assets/github/virtio-plugin/${{env.VIRTIO_PLUGIN_SHA}}/${{env.ARCH}}/${{ env.JOB_TYPE }}/libvaccel-virtio.so
+        remote-path: nbfc-assets/github/virtio-plugin/${{env.VIRTIO_PLUGIN_SHA}}/${{env.ARCHITECTURE}}/${{ env.JOB_TYPE }}/libvaccel-virtio.so
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
@@ -223,7 +223,7 @@ jobs:
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
         local-path: /github/workspace/artifacts/opt/lib/
-        remote-path: nbfc-assets/github/vsock-plugin/${{env.VSOCK_PLUGIN_SHA}}/${{env.ARCH}}/${{ env.JOB_TYPE }}/libvaccel-vsock.so
+        remote-path: nbfc-assets/github/vsock-plugin/${{env.VSOCK_PLUGIN_SHA}}/${{env.ARCHITECTURE}}/${{ env.JOB_TYPE }}/libvaccel-vsock.so
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
@@ -235,7 +235,7 @@ jobs:
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
         local-path: /github/workspace/artifacts/opt/bin/
-        remote-path: nbfc-assets/github/vaccel-agent/${{env.AGENT_SHA}}/${{env.ARCH}}/${{ steps.vars.outputs.agent_build_type }}/vaccelrt-agent
+        remote-path: nbfc-assets/github/vaccel-agent/${{env.AGENT_SHA}}/${{env.ARCHITECTURE}}/${{ steps.vars.outputs.agent_build_type }}/vaccelrt-agent
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
