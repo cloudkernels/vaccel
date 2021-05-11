@@ -295,37 +295,6 @@ jobs:
             -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so \
             --agent-prefix ${{ github.workspace }}/artifacts/opt/bin
 
-    - name: Checkout private tools
-      uses: actions/checkout@v2
-      with:
-        repository: cloudkernels/vaccelrt-agent
-        ref: ${{ needs.prepare.outputs.agent_sha }}
-        token: ${{ secrets.NBFC_BUILDER_TOKEN }} # `GitHub_PAT` is a secret that contains your PAT
-        path: vaccelrt-agent
-
-    - name: Cargo hack
-      run: |
-        sudo chmod a+w /opt/cargo -R
-
-    - name: Build and install agent
-      working-directory: ${{ github.workspace }}/vaccelrt-agent
-      env:
-        PKG_CONFIG_PATH: ${{ github.workspace }}/artifacts/opt/share/
-      run: |
-        if [[ $ARCHITECTURE == "x86_64" ]]
-        then
-          sudo cp -r ${{ github.workspace }}/artifacts/opt/include/* /usr/include/
-          sudo cp ${{ github.workspace }}/artifacts/opt/lib/* /usr/lib/
-          cargo install --path .
-        fi
-
-    - name: Test vsock plugin
-      run: |
-        if [[ $ARCHITECTURE == "x86_64" ]]
-        then
-          ./scripts/test_vsock.sh -i ${{ github.workspace }}/artifacts/opt/share/fc_test -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so
-        fi
-        
     - name: Pack latest release
       if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' && github.ref == 'refs/heads/master' }}
       working-directory: ${{ github.workspace }}/artifacts/opt
