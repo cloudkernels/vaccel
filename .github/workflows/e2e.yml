@@ -11,7 +11,7 @@ on:
 
 jobs:
   prepare:
-    runs-on: [cloud]
+    runs-on: [ram]
     outputs:
       vaccelrt_sha: ${{ steps.vars.outputs.vaccelrt_sha }}
       firecracker_sha: ${{ steps.vars.outputs.firecracker_sha }}
