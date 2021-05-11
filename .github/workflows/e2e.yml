@@ -271,7 +271,7 @@ jobs:
             --seccomp-level 0 &
 
     - name: Test Firecracker is up
-      run: ping -c 20 172.42.0.2
+      run: sudo ping -c 20 172.42.0.2
 
     - name: Test Firecracker ssh
       timeout-minutes: 2
