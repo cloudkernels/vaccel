@@ -87,7 +87,7 @@ build() {
 		--output type=local,dest=. .
 	ok_or_die "Could not build the base rootfs"
 
-	dd if=/dev/zero of=rootfs.img bs=1M count=0 seek=512
+	dd if=/dev/zero of=rootfs.img bs=1M count=0 seek=2048
 	sudo mkfs.ext4 rootfs.img
 	ok_or_die "Could not create filesystem for rootfs"
 
