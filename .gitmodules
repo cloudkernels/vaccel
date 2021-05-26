@@ -28,3 +28,6 @@
 [submodule "bindings/rust-bindings"]
 	path = bindings/rust-bindings
 	url = git@github.com:cloudkernels/vaccel-bindings.git
+[submodule "plugins/vaccelrt-plugin-tensorflow"]
+	path = plugins/vaccelrt-plugin-tensorflow
+	url = git@github.com:nubificus/vaccelrt-plugin-tensorflow.git
