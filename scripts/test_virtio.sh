@@ -32,12 +32,21 @@ print_help() {
 	echo ""
 }
 
-run_test() {
+_run_ssh_test() {
+	ssh -o StrictHostKeyChecking=no -i $SSH_KEY root@$FC_IP $1
+}
+
+test_image_classification() {
 	in_fc_cmd="LD_LIBRARY_PATH=$VACCEL_PATH/lib"
 	in_fc_cmd="$in_fc_cmd VACCEL_BACKENDS=$VACCEL_PATH/lib/libvaccel-virtio.so"
-	in_fc_cmd="$in_fc_cmd $VACCEL_PATH/bin/classify /root/images/dog_0.jpg 1"
+	in_fc_cmd="$in_fc_cmd VACCEL_DEBUG_LEVEL=4"
+	in_fc_cmd="$in_fc_cmd $VACCEL_PATH/bin/classify $VACCEL_PATH/share/images/example.jpg 1"
 
-	ssh -o StrictHostKeyChecking=no -i $SSH_KEY root@$FC_IP $in_fc_cmd
+	_run_ssh_test "$in_fc_cmd"
+}
+
+run_tests() {
+	test_image_classification
 }
 
 main() {
@@ -55,7 +64,7 @@ main() {
 		shift
 	done
 
-	run_test
+	run_tests
 }
 
 main "$@"

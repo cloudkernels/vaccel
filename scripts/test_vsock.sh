@@ -64,22 +64,53 @@ kill_agent() {
 	kill -9 $AGENT_PID
 }
 
-run_test() {
+_run_ssh_test() {
+	ssh -o StrictHostKeyChecking=no -i $SSH_KEY root@$FC_IP $1
+}
+
+test_image_classification() {
+	info "Testing image classification"
 	in_fc_cmd="LD_LIBRARY_PATH=$VACCEL_PATH/lib"
 	in_fc_cmd="$in_fc_cmd VACCEL_BACKENDS=$VACCEL_PATH/lib/libvaccel-vsock.so"
 	in_fc_cmd="$in_fc_cmd VACCEL_VSOCK=$VACCEL_VSOCK"
 	in_fc_cmd="$in_fc_cmd VACCEL_DEBUG_LEVEL=4"
-	in_fc_cmd="$in_fc_cmd $VACCEL_PATH/bin/classify /root/images/dog_0.jpg 1"
+	in_fc_cmd="$in_fc_cmd $VACCEL_PATH/bin/classify $VACCEL_PATH/share/images/example.jpg 1"
 
+	_run_ssh_test "$in_fc_cmd"
+}
+
+test_tf_inference() {
+	info "Testing TensorFlow inference"
+	in_fc_cmd="LD_LIBRARY_PATH=$VACCEL_PATH/lib"
+	in_fc_cmd="$in_fc_cmd VACCEL_BACKENDS=$VACCEL_PATH/lib/libvaccel-vsock.so"
+	in_fc_cmd="$in_fc_cmd VACCEL_VSOCK=$VACCEL_VSOCK"
+	in_fc_cmd="$in_fc_cmd VACCEL_DEBUG_LEVEL=4"
+	in_fc_cmd="$in_fc_cmd $VACCEL_PATH/bin/tf_inference $VACCEL_PATH/share/models/tf/lstm2"
+
+	_run_ssh_test "$in_fc_cmd"
+}
+
+run_tests() {
 	launch_agent
 	ok_or_die "Could not launch agent"
 
-	ssh -o StrictHostKeyChecking=no -i $SSH_KEY root@$FC_IP $in_fc_cmd
+	test_image_classification
 	retval=$?
+	if [[ $retval -ne 0 ]]
+	then
+		err "image classification failed: $retval"
+		kill_agent
+		exit $retval
+	fi
 
-	kill_agent
-
-	exit $retval
+	test_tf_inference
+	retval=$?
+	if [[ $? -ne 0 ]]
+	then
+		err "TensorFlow inference failed: $retval"
+		kill_agent
+		exit $retval
+	fi
 }
 
 main() {
@@ -101,7 +132,7 @@ main() {
 		shift
 	done
 
-	run_test
+	run_tests
 }
 
 main "$@"
