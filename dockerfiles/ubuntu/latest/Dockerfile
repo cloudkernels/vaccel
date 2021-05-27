@@ -21,10 +21,10 @@ RUN echo "virtio_accel" >> /etc/modules
 
 # Copy libvaccel inside the image
 RUN mkdir -p /opt/vaccel/bin
-COPY bin/classify /opt/vaccel/bin
+COPY bin /opt/vaccel/bin
 COPY lib /opt/vaccel/lib
 COPY include /opt/vaccel/include
-COPY imagenet/images share
+COPY share /opt/vaccel/share
 RUN echo "/opt/vaccel/lib" >> /etc/ld.so.conf.d/vaccel.conf
 RUN echo "/sbin/ldconfig" >> /root/.bashrc
 RUN echo "export VACCEL_BACKENDS=/opt/vaccel/lib/libvaccel-virtio.so" >> /root/.bashrc
