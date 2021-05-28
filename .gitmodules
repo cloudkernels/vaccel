@@ -31,3 +31,6 @@
 [submodule "plugins/vaccelrt-plugin-tensorflow"]
 	path = plugins/vaccelrt-plugin-tensorflow
 	url = git@github.com:nubificus/vaccelrt-plugin-tensorflow.git
+[submodule "bindings/tensorflow-bindings"]
+	path = bindings/tensorflow-bindings
+	url = git@github.com:cloudkernels/tf-vaccel-bindings.git
