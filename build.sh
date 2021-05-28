@@ -38,12 +38,16 @@ prepare_build_env() {
 	mkdir -p $BUILD_DIR/$BUILD_TYPE
 }
 
-runctr_vaccel_deps() {
+runctr() {
 	docker run --rm -ti \
 	       -v $SOURCEDIR:$SOURCEDIR \
 	       -v $BUILD_DIR:$BUILD_DIR \
 	       -v $INSTALL_PREFIX:$INSTALL_PREFIX \
-	       nubificus/vaccel-deps:latest "$@"
+	       "$@"
+}
+
+runctr_vaccel_deps() {
+	runctr nubificus/vaccel-deps:latest "$@"
 }
 
 # Build vAccelRT inside a container
@@ -83,12 +87,68 @@ build_firecracker() {
 	ok_or_die "Could not build firecracker"
 }
 
-build_virtio() {
-	info "Calling the virtio-accel build script"
+_build_virtio_host() {
+	info "Calling the virtio-accel build script on host"
 	./scripts/build_virtio.sh \
 		--build_dir $BUILD_DIR/$BUILD_TYPE \
 		--install_prefix $INSTALL_PREFIX/$BUILD_TYPE
 	ok_or_die "Could not build virtio module"
+}
+
+_build_virtio_ctr() {
+	info "Calling the virtio-accel build script inside container"
+	runctr kernel-build-container:gcc-7 \
+		$SOURCEDIR/scripts/build_virtio.sh \
+		--build_dir $BUILD_DIR/$BUILD_TYPE \
+		--src_dir $SOURCEDIR/virtio-accel \
+		--install_prefix $INSTALL_PREFIX/$BUILD_TYPE
+	ok_or_die "Could not build virtio module and Linux kernel"
+
+	runctr kernel-build-container:gcc-7 \
+		chown -R "$(id -u):$(id -g)" \
+			$BUILD_DIR/$BUILD_TYPE/virtio-accel \
+			$INSTALL_PREFIX/$BUILD_TYPE
+	ok_or_die "Could not fix permissions for virtio module and Linux kernel"
+}
+
+build_virtio() {
+	[ "$CTR_BUILD" == yes ] && _build_virtio_ctr || _build_virtio_host
+}
+
+build_tf_plugin() {
+	info "Calling TensorFlow plugin build script inside container"
+	runctr nubificus/tensorflow \
+		$SOURCEDIR/scripts/build_tf_plugin.sh \
+		--$BUILD_TYPE \
+		--src_dir $SOURCEDIR/plugins/vaccelrt-plugin-tensorflow \
+		--build_dir $BUILD_DIR/$BUILD_TYPE \
+		--install_prefix $INSTALL_PREFIX/$BUILD_TYPE
+	ok_or_die "Could not build TensorFlow plugin inside container"
+
+	# Fix permissions
+	runctr nubificus/tensorflow \
+		chown -R "$(id -u):$(id -g)" \
+			$BUILD_DIR/$BUILD_TYPE/tf-plugin \
+			$INSTALL_PREFIX/$BUILD_TYPE
+	ok_or_die "Could not fix permissions for TensorFlow plugin"
+}
+
+build_vsock_plugin() {
+	info "Calling vsock plugin build script"
+	runctr nubificus/vaccel-deps \
+		$SOURCEDIR/scripts/build_vsock_plugin.sh \
+			--$BUILD_TYPE \
+			--src_dir $SOURCEDIR/plugins/vaccelrt-plugin-vsock \
+			--build_dir $BUILD_DIR/$BUILD_TYPE \
+			--install_prefix $INSTALL_PREFIX/$BUILD_TYPE
+	ok_or_die "Could not build vsock plugin"
+
+	# Fix permissions
+	runctr nubificus/tensorflow \
+		chown -R "$(id -u):$(id -g)" \
+			$BUILD_DIR/$BUILD_TYPE/vsock-plugin \
+			$INSTALL_PREFIX/$BUILD_TYPE
+	ok_or_die "Could not fix permissions for TensorFlow plugin"
 }
 
 build_fc_rootfs() {
@@ -107,11 +167,17 @@ download_models() {
 	./scripts/download-models.sh NO $INSTALL_PREFIX/$BUILD_TYPE/share/networks
 }
 
+build_plugins() {
+	build_vsock_plugin
+	build_tf_plugin
+}
+
 build_all() {
 	build_vaccelrt
 	build_firecracker
 	build_virtio
 	build_fc_rootfs
+	build_plugins
 	download_models
 }
 
@@ -139,6 +205,9 @@ build_help() {
 	echo ""
 	echo "    virtio"
 	echo "        build the vaccel-virtio module & corresponding kernel"
+	echo ""
+	echo "    tf_plugin"
+	echo "        build the TensorFlow plugin"
 	echo ""
 	echo "    fc_rootfs"
 	echo "        build a rootfs image for firecracker"

@@ -61,7 +61,8 @@ build() {
 	make test && \
 		make install -C src && \
 		make install -C plugins && \
-		make install -C examples
+		make install -C examples && \
+		make install -C third-party
 	cd -
 }
 
