@@ -180,6 +180,14 @@ build_fc_rootfs() {
 	ok_or_die "Could not build rootfs"
 }
 
+build_tf_bindings() {
+	info "Calling the tensorflow bindings build script"
+	./scripts/build_tf_bindings.sh \
+		--build_dir $BUILD_DIR/$BUILD_TYPE \
+		--install_prefix $INSTALL_PREFIX/$BUILD_TYPE
+	ok_or_die "Could not build tensorflow bindings"
+}
+
 download_models() {
 	info "Downloading imagenet models"
 	mkdir -p $INSTALL_PREFIX/$BUILD_TYPE/share/networks
@@ -205,6 +213,7 @@ build_all() {
 	build_vaccelrt
 	build_firecracker
 	build_virtio
+	build_tf_bindings
 	build_fc_rootfs all
 	build_plugins
 	build_vaccel_agent
@@ -240,6 +249,8 @@ build_help() {
 	echo "    tf_plugin"
 	echo "        build the TensorFlow plugin"
 	echo ""
+	echo "    tf_bindings"
+	echo "        build the Tensorflow bindings"
 	echo "    virtio_plugin"
 	echo "        build the VirtIO plugin"
 	echo ""
