@@ -184,7 +184,8 @@ build_tf_bindings() {
 	info "Calling the tensorflow bindings build script"
 	./scripts/build_tf_bindings.sh \
 		--build_dir $BUILD_DIR/$BUILD_TYPE \
-		--install_prefix $INSTALL_PREFIX/$BUILD_TYPE
+		--install_prefix $INSTALL_PREFIX/$BUILD_TYPE \
+		"$@"
 	ok_or_die "Could not build tensorflow bindings"
 }
 
