@@ -207,7 +207,7 @@ jobs:
 
     - name: Test vsock plugin
       run: |
-        sudo LD_LIBRARY_PATH=${{ github.workspace }}/lib \
+        sudo LD_LIBRARY_PATH=${{ github.workspace }}/artifacts/opt/lib \
           ./scripts/test_vsock.sh \
             -i ${{ github.workspace }}/artifacts/opt/share/fc_test \
             -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so \
