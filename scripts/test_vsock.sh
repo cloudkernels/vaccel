@@ -13,7 +13,7 @@ SSH_TIMEOUT=300
 FC_IP="172.42.0.2"
 
 # Path to ssh private key
-SSH_KEY=$(pwd)/opt/share/fc_test
+#SSH_KEY=$(pwd)/opt/share/fc_test
 
 # vsock socket to use inside the VM
 VACCEL_VSOCK="vsock://2:2048"
@@ -43,7 +43,7 @@ print_help() {
 	echo "    -v|--vaccel     Directory of vAccel installation (default: '/opt/vaccel')"
 	echo "    -t|--timeout    Timeout in seconds to wait response from Firecracker (default: 300)"
 	echo "    -a|--ip-address Address of Firecracker VM"
-	echo "    -i|--ssh-key    RSA key to use for SSHing inside the VM"
+	echo "    -i|--ssh-key    RSA key to use for SSHing inside the VM (not currently used)"
 	echo "    -p|--plugin     Plugin to use for agent"
 	echo "    --agent-prefix  Location of the agent binary"
 	echo "    --vsock         Vsock socket to use inside the VM"
@@ -74,7 +74,8 @@ run_test() {
 	launch_agent
 	ok_or_die "Could not launch agent"
 
-	ssh -o StrictHostKeyChecking=no -i $SSH_KEY root@$FC_IP $in_fc_cmd
+	ssh -o StrictHostKeyChecking=no -o GlobalKnownHostsFile=/dev/null \
+		-o UserKnownHostsFile=/dev/null root@$FC_IP $in_fc_cmd
 	retval=$?
 
 	kill_agent

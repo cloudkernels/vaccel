@@ -11,7 +11,7 @@ on:
 
 jobs:
   prepare:
-    runs-on: [self-hosted]
+    runs-on: [ram]
     outputs:
       vaccelrt_sha: ${{ steps.vars.outputs.vaccelrt_sha }}
       firecracker_sha: ${{ steps.vars.outputs.firecracker_sha }}
@@ -53,7 +53,7 @@ jobs:
       VSOCK_PLUGIN_SHA: ${{ needs.prepare.outputs.vsock_plugin_sha }}
       AGENT_SHA: ${{ needs.prepare.outputs.agent_sha }}
       JOB_TYPE: ${{ matrix.build_type }}
-      ARCH: ${{ matrix.arch }}
+      ARCHITECTURE: ${{ matrix.arch }}
 
     strategy:
       matrix:
@@ -62,12 +62,17 @@ jobs:
       fail-fast: false
 
     steps:
+    - name: Cleanup previous runs
+      run: |
+        sudo rm -rf ${{ github.workspace }}/*
+        sudo rm -rf ${{ github.workspace }}/.??*
+
     - uses: actions/checkout@v2
 
     - name: Install packages
       run: |
         sudo apt update && sudo apt install -y \
-          subversion coreutils rsync iproute2 libfdt-dev
+          subversion coreutils rsync iproute2 libfdt-dev qemu-system-x86-64 parted debootstrap bc udev libssl-dev libelf-dev
 
     - name: Setup vars
       id: vars
@@ -84,11 +89,84 @@ jobs:
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
         local-path: /github/workspace/artifacts/opt/
-        remote-path: nbfc-assets/github/vaccelrt/${{env.VACCELRT_SHA}}/${{env.ARCH}}/${{ env.JOB_TYPE }}/opt/
+        remote-path: nbfc-assets/github/vaccelrt/${{env.VACCELRT_SHA}}/${{env.ARCHITECTURE}}/${{ env.JOB_TYPE }}/opt/
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
 
+    - name: Download go & kata containers
+      run: |
+        if [[ $ARCHITECTURE == "x86_64" ]]
+             then
+                export ARCH=amd64
+             else
+                export ARCH=arm64
+             fi
+        #wget https://golang.org/dl/go1.15.11.linux-$ARCH.tar.gz
+        #sudo tar -zxf go1.15.11.linux-$ARCH.tar.gz -C /usr/local/
+        git submodule update --init kata-containers
+        git submodule update --init virtio-accel
+
+    - name: Checkout private tools
+      uses: actions/checkout@v2
+      with:
+        repository: nubificus/vaccel-go-runtime
+        ref: main
+        token: ${{ secrets.NBFC_BUILDER_TOKEN }} # `GitHub_PAT` is a secret that contains your PAT
+        path: kata-containers/src/runtime/vendor/github.com/nubificus/vaccel-go-runtime
+
+    - name: Build and install kata-containers
+      env:
+        GOROOT: /usr/local/go
+        GOPATH: /home/runner/go
+      run: |
+        export PATH=$GOROOT/bin:$PATH
+        export PATH=$GOPATH/bin:$PATH
+        if [[ $ARCHITECTURE == "x86_64" ]]
+             then
+                export ARCH=amd64
+                export ARCH_KERNEL=x86_64
+             else
+                export ARCH_KERNEL=arm64
+             fi
+        cd kata-containers
+        make -C src/runtime
+        sudo cp src/runtime/containerd-shim-kata-v2 ${{ github.workspace }}/artifacts/opt/bin/
+        sudo cp src/runtime/cli/config/configuration-fc.toml ${{ github.workspace }}/artifacts/opt/share/
+        cd tools/packaging/kernel
+        echo "CONFIG_MODULES=y" > configs/fragments/$ARCH_KERNEL/vaccel.conf
+        echo "CONFIG_MODULE_UNLOAD=y" >> configs/fragments/$ARCH_KERNEL/vaccel.conf
+        echo "CONFIG_MODULE_SIG=y" >> configs/fragments/$ARCH_KERNEL/vaccel.conf
+        VERSION=`./build-kernel.sh setup 2>&1 |grep Kernel\ version\: | awk '{print $4}'`
+        ./build-kernel.sh build
+        if [[ $ARCHITECTURE == "x86_64" ]]
+        then
+                sudo cp kata-linux*/vmlinux ${{ github.workspace }}/artifacts/opt/share/vmlinux-kata-fc
+        else
+                sudo cp kata-linux*/arch/arm64/boot/Image ${{ github.workspace }}/artifacts/opt/share/vmlinux-kata-fc
+        fi
+        cd ${{ github.workspace }}/virtio-accel
+        git checkout fix_kzfree
+        KDIR=${{ github.workspace }}/kata-containers/tools/packaging/kernel/kata-linux*/ make ZC=0 ARCH=$ARCH_KERNEL
+        sudo cp virtio_accel.ko ${{ github.workspace }}/artifacts/opt/share/virtio_accel-kata.ko
+        if [[ $ARCHITECTURE != "blah" ]]
+        then
+                cd ${{ github.workspace }}/kata-containers/tools/osbuilder/rootfs-builder/
+                export ROOTFS_DIR=$PWD/rootfs
+                rm -rf $ROOTFS_DIR
+                script -fec 'sudo su root -c ". /opt/cargo/env && GOPATH=$GOPATH GOROOT=$GOROOT PATH=$GOROOT/bin:$PATH RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:$PATH ./rootfs.sh -r $ROOTFS_DIR ubuntu"'
+                MODULES_DIR=${ROOTFS_DIR}/lib/modules/$VERSION
+                sudo mkdir -p ${MODULES_DIR}
+                sudo cp ${{ github.workspace }}/virtio-accel/virtio_accel.ko $MODULES_DIR
+                sudo touch ${MODULES_DIR}/modules.builtin
+                sudo touch ${MODULES_DIR}/modules.order
+                echo "virtio_accel" > virtio_accel.conf
+                sudo cp virtio_accel.conf ${ROOTFS_DIR}/etc/modules-load.d/
+                sudo chroot ${ROOTFS_DIR} /sbin/depmod $VERSION
+                cd ../image-builder
+                script -fec 'sudo bash -x ./image_builder.sh $ROOTFS_DIR'
+                sudo cp kata-containers.img ${{ github.workspace }}/artifacts/opt/share/
+        fi
 
     - name: Fetch Firecracker
       uses: cloudkernels/minio-download@master
@@ -96,7 +174,7 @@ jobs:
         url: https://s3.nubificus.co.uk
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
-        remote-path: nbfc-assets/github/firecracker/${{ env.FIRECRACKER_SHA }}/${{env.ARCH}}/${{ steps.vars.outputs.firecracker_build_type }}/firecracker
+        remote-path: nbfc-assets/github/firecracker/${{ env.FIRECRACKER_SHA }}/${{env.ARCHITECTURE}}/${{ steps.vars.outputs.firecracker_build_type }}/firecracker
         local-path: /github/workspace/artifacts/opt/bin/
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
@@ -108,7 +186,7 @@ jobs:
         url: https://s3.nubificus.co.uk
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
-        remote-path: nbfc-assets/github/virtio-accel/${{ env.VIRTIO_SHA }}/${{env.ARCH}}/linux/vmlinux
+        remote-path: nbfc-assets/github/virtio-accel/${{ env.VIRTIO_SHA }}/${{env.ARCHITECTURE}}/linux/vmlinux
         local-path: /github/workspace/artifacts/opt/share/
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
@@ -120,7 +198,7 @@ jobs:
         url: https://s3.nubificus.co.uk
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
-        remote-path: nbfc-assets/github/virtio-accel/${{ env.VIRTIO_SHA }}/${{env.ARCH}}/linux/virtio_accel.ko
+        remote-path: nbfc-assets/github/virtio-accel/${{ env.VIRTIO_SHA }}/${{env.ARCHITECTURE}}/linux/virtio_accel.ko
         local-path: /github/workspace/artifacts/opt/share/
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
@@ -133,7 +211,7 @@ jobs:
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
         local-path: /github/workspace/artifacts/opt/lib/
-        remote-path: nbfc-assets/github/virtio-plugin/${{env.VIRTIO_PLUGIN_SHA}}/${{env.ARCH}}/${{ env.JOB_TYPE }}/libvaccel-virtio.so
+        remote-path: nbfc-assets/github/virtio-plugin/${{env.VIRTIO_PLUGIN_SHA}}/${{env.ARCHITECTURE}}/${{ env.JOB_TYPE }}/libvaccel-virtio.so
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
@@ -145,7 +223,7 @@ jobs:
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
         local-path: /github/workspace/artifacts/opt/lib/
-        remote-path: nbfc-assets/github/vsock-plugin/${{env.VSOCK_PLUGIN_SHA}}/${{env.ARCH}}/${{ env.JOB_TYPE }}/libvaccel-vsock.so
+        remote-path: nbfc-assets/github/vsock-plugin/${{env.VSOCK_PLUGIN_SHA}}/${{env.ARCHITECTURE}}/${{ env.JOB_TYPE }}/libvaccel-vsock.so
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
@@ -157,7 +235,7 @@ jobs:
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
         local-path: /github/workspace/artifacts/opt/bin/
-        remote-path: nbfc-assets/github/vaccel-agent/${{env.AGENT_SHA}}/${{env.ARCH}}/${{ steps.vars.outputs.agent_build_type }}/vaccelrt-agent
+        remote-path: nbfc-assets/github/vaccel-agent/${{env.AGENT_SHA}}/${{env.ARCHITECTURE}}/${{ steps.vars.outputs.agent_build_type }}/vaccelrt-agent
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
@@ -180,6 +258,10 @@ jobs:
       working-directory: ${{ github.workspace }}/artifacts/opt
       run: |
         sudo rm -f fc.sock
+        sudo rm -f /usr/local/share/imagenet-models/networks fc.sock
+        sudo mkdir -p /usr/local/share/imagenet-models
+        sudo chmod a+rw /usr/local/share/imagenet-models
+        ln -s ${{ github.workspace }}/artifacts/opt/share/networks /usr/local/share/imagenet-models/networks
         sudo VACCEL_BACKENDS=${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so \
           LD_LIBRARY_PATH=${{ github.workspace }}/artifacts/opt/lib:/usr/local/lib:/usr/lib \
           VACCEL_DEBUG_LEVEL=4 \
@@ -189,7 +271,7 @@ jobs:
             --seccomp-level 0 &
 
     - name: Test Firecracker is up
-      run: ping -c 20 172.42.0.2
+      run: sudo ping -c 20 172.42.0.2
 
     - name: Test Firecracker ssh
       timeout-minutes: 2
@@ -214,28 +296,42 @@ jobs:
             --agent-prefix ${{ github.workspace }}/artifacts/opt/bin
 
     - name: Pack latest release
-      if: ${{ github.event_name == 'push' }}
+      if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' && github.ref == 'refs/heads/master' }}
       working-directory: ${{ github.workspace }}/artifacts/opt
       run: |
         cp ${{github.workspace}}/conf/{config_virtio_accel.json,config_vsock.json} share/
+        if [[ $ARCHITECTURE == "x86_64" ]]
+        then
+             cp /opt/cargo/bin/vaccelrt-agent bin/
+        fi
         zip -r ${{github.workspace}}/vaccel_${{matrix.arch}}_${{matrix.build_type}}.zip bin/ include/ lib/ \
           share/config_virtio_accel.json share/config_vsock.json \
-          share/fc_test share/fc_test.pub \
           share/rootfs.img share/virtio_accel.ko share/vmlinux \
+          share/kata-containers.img share/virtio_accel-kata.ko share/vmlinux-kata-fc \
+          share/configuration-fc.toml \
           share/vaccel.pc
 
+    - name: Extract branch name
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+      shell: bash
+      run: echo "##[set-output name=branch;]$(echo ${{ github.head_ref }})"
+      id: extract_branch
+
+
     - name: Upload latest master release to s3
-      if: ${{ github.event_name == 'push' }}
+      if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' && github.ref == 'refs/heads/master' }}
       uses: cloudkernels/minio-upload@master
       with:
         url: https://s3.nubificus.co.uk
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
-        remote-path: nbfc-assets/github/vaccel/master/${{env.ARCH}}/${{env.JOB_TYPE}}/
+        remote-path: nbfc-assets/github/vaccel/${{ steps.extract_branch.outputs.branch }}/${{env.ARCHITECTURE}}/${{env.JOB_TYPE}}/
         local-path: /github/workspace/vaccel_${{matrix.arch}}_${{matrix.build_type}}.zip
 
     - name: Cleanup run
       if: ${{ always() }}
+      #if: ${{ github.ref == 'refs/heads/main' }}
       run: |
         sudo rm -rf ${{ github.workspace }}/*
         sudo rm -rf ${{ github.workspace }}/.??*
@@ -267,27 +363,35 @@ jobs:
         echo "::set-output name=uid::$(id -u)"
         echo "::set-output name=gid::$(id -g)"
 
+    - name: Extract branch name
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+      shell: bash
+      run: echo "##[set-output name=branch;]$(echo ${{ github.head_ref }})"
+      id: extract_branch
+
+
     - name: Download artifacts
-      if: ${{ github.event_name == 'push' }}
+      if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' && github.ref == 'refs/heads/master' }}
       uses: cloudkernels/minio-download@master
       with:
         url: https://s3.nubificus.co.uk
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
-        remote-path: nbfc-assets/github/vaccel/master/
+        remote-path: nbfc-assets/github/vaccel/${{ steps.extract_branch.outputs.branch }}/
         local-path: /github/workspace/master/
       env:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
-
+        
     - name: Update the release
-      if: ${{ github.event_name == 'push' }}
+      if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' && github.ref == 'refs/heads/master' }}
       uses: marvinpinto/action-automatic-releases@latest
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
-        automatic_release_tag: "latest"
+        automatic_release_tag: ${{ steps.extract_branch.outputs.branch }}
         prerelease: true
-        title: "Latest master build"
+        title: "Latest ${{ steps.extract_branch.outputs.branch }} build"
         files: |
           master/vaccel_x86_64_Debug.zip
           master/vaccel_x86_64_Release.zip

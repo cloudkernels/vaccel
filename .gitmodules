@@ -4,9 +4,6 @@
 [submodule "firecracker"]
 	path = firecracker
 	url = git@github.com:cloudkernels/firecracker.git
-[submodule "virtio-accel"]
-	path = virtio-accel
-	url = git@github.com:cloudkernels/virtio-accel.git
 [submodule "vaccel-grpc"]
 	path = vaccel-grpc
 	url = git@github.com:cloudkernels/vaccel-grpc.git
@@ -28,3 +25,10 @@
 [submodule "bindings/rust-bindings"]
 	path = bindings/rust-bindings
 	url = git@github.com:cloudkernels/vaccel-bindings.git
+[submodule "kata-containers"]
+	path = kata-containers
+	url = https://github.com/nubificus/kata-containers
+	branch = vaccel-release
+[submodule "virtio-accel"]
+	path = virtio-accel
+	url = https://github.com/cloudkernels/virtio-accel
