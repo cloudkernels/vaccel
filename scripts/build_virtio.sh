@@ -37,6 +37,7 @@ print_help() {
 }
 
 prepare_env() {
+	sudo apt update && sudo apt install wget
 	mkdir -p $BUILD_DIR/virtio-accel
 	mkdir -p $INSTALL_PREFIX/{share,include}
 }

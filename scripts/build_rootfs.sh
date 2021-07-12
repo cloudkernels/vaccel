@@ -33,7 +33,6 @@ print_help() {
 }
 
 fetch_images() {
-	svn export https://github.com/dusty-nv/jetson-inference/trunk/data/images images
 	svn export https://github.com/dusty-nv/jetson-inference/trunk/data/networks networks
 }
 
@@ -87,7 +86,7 @@ build() {
 		--output type=local,dest=. .
 	ok_or_die "Could not build the base rootfs"
 
-	dd if=/dev/zero of=rootfs.img bs=1M count=0 seek=512
+	dd if=/dev/zero of=rootfs.img bs=1M count=0 seek=4096
 	sudo mkfs.ext4 rootfs.img
 	ok_or_die "Could not create filesystem for rootfs"
 
@@ -100,9 +99,6 @@ build() {
 	sudo chown -R root:root $mnt/root
 	ok_or_die "Could not populate rootfs"
 
-	sudo rsync -aogxvPH imagenet/images $mnt/root/
-	ok_or_die "Could not add images"
-
 	sudo umount $mnt
 	ok_or_die "Could unmount rootfs"
 
@@ -111,7 +107,7 @@ build() {
 
 	cp rootfs.img ${INSTALL_PREFIX}/share/
 	cp fc_test* ${INSTALL_PREFIX}/share/
-	cp -r imagenet/{networks,images} ${INSTALL_PREFIX}/share/
+	cp -r imagenet/networks ${INSTALL_PREFIX}/share/
 }
 
 main() {

@@ -7,7 +7,7 @@ SCRIPTPATH=$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )
 BUILD_TYPE=Debug
 
 # vaccelrt source directory
-SRC_DIR="$(pwd)/vaccelrt"
+SRC_DIR="$(pwd)/plugins/vaccelrt-plugin-jeston"
 
 # Build directory
 BUILD_DIR="$(pwd)/build"
@@ -43,26 +43,24 @@ print_help() {
 
 
 prepare_env() {
-	mkdir -p $BUILD_DIR/vaccelrt
+	mkdir -p $BUILD_DIR/jetson-plugin
 }
 
 build() {
-	cd $BUILD_DIR/vaccelrt
+	cd $BUILD_DIR/jetson-plugin
 	# Configure Cmake
 	cmake $SRC_DIR \
 		-DCMAKE_INSTALL_PREFIX=$INSTALL_PREFIX \
-		-DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-		-DBUILD_EXAMPLES=ON \
-		-DBUILD_PLUGIN_NOOP=ON \
-		-DENABLE_TESTS=ON
+		-DCMAKE_BUILD_TYPE=$BUILD_TYPE
+	ok_or_die "Could not configure cmake"
 
 	# Build and install
 	cmake --build . --config ${BUILD_TYPE}
-	make test && \
-		make install -C src && \
-		make install -C plugins && \
-		make install -C examples && \
-		make install -C third-party
+	ok_or_die "Could not build"
+
+	make install
+	ok_or_die "Could not install"
+
 	cd -
 }
 
