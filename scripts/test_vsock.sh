@@ -90,6 +90,17 @@ test_tf_inference() {
 	_run_ssh_test "$in_fc_cmd"
 }
 
+test_tf_saved_model() {
+	info "Testing TensorFlow SavedModel resource API"
+	in_fc_cmd="LD_LIBRARY_PATH=$VACCEL_PATH/lib"
+	in_fc_cmd="$in_fc_cmd VACCEL_BACKENDS=$VACCEL_PATH/lib/libvaccel-vsock.so"
+	in_fc_cmd="$in_fc_cmd VACCEL_VSOCK=$VACCEL_VSOCK"
+	in_fc_cmd="$in_fc_cmd VACCEL_DEBUG_LEVEL=4"
+	in_fc_cmd="$in_fc_cmd $VACCEL_PATH/bin/tf_saved_model $VACCEL_PATH/share/models/tf/lstm2"
+
+	_run_ssh_test "$in_fc_cmd"
+}
+
 run_tests() {
 	launch_agent
 	ok_or_die "Could not launch agent"
@@ -108,6 +119,15 @@ run_tests() {
 	if [[ $? -ne 0 ]]
 	then
 		err "TensorFlow inference failed: $retval"
+		kill_agent
+		exit $retval
+	fi
+
+	test_tf_saved_model
+	retval=$?
+	if [[ $? -ne 0 ]]
+	then
+		err "TensorFlow SavedModel resource API failed: $retval"
 		kill_agent
 		exit $retval
 	fi
