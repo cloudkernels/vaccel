@@ -2,7 +2,7 @@
 name: vAccel feature request
 about: Describe a new feature request for vAccel framework
 title: ''
-labels: ''
+labels: enhancement
 assignees: ''
 
 ---
