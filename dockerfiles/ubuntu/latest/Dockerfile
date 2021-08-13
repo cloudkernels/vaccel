@@ -31,7 +31,8 @@ COPY include /opt/vaccel/include
 COPY share /opt/vaccel/share
 RUN echo "/opt/vaccel/lib" >> /etc/ld.so.conf.d/vaccel.conf
 RUN echo "/sbin/ldconfig" >> /root/.bashrc
-RUN echo "export VACCEL_BACKENDS=/opt/vaccel/lib/libvaccel-virtio.so" >> /root/.bashrc
+RUN echo "export VACCEL_BACKENDS=/opt/vaccel/lib/libvaccel-vsock.so" >> /root/.bashrc
+RUN echo "export VACCEL_DEBUG_LEVEL=4" >> /root/.bashrc
 
 # Enable ssh server
 RUN systemctl enable ssh
