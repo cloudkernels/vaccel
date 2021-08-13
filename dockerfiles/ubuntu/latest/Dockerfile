@@ -8,7 +8,11 @@ RUN apt-get update && apt-get install -y \
       init \
       kmod \
       openssh-server \
-      udev && \
+      udev \
+      gdb \
+      valgrind \
+      rsync \
+      iproute2 && \
     apt-get clean
 
 # virtio module setup
