@@ -75,9 +75,6 @@ prepare_env() {
 build() {
 	cd ${BUILD_DIR}/rootfs
 
-	# Create RSA key to rootfs
-	ssh-keygen -t rsa -f fc_test -N ""
-
 	# Create root filesystem
 	DOCKER_BUILDKIT=1 docker build \
 		--network=host \
@@ -112,7 +109,6 @@ build() {
 	sudo rmdir $mnt
 
 	cp rootfs.img ${INSTALL_PREFIX}/share/
-	cp fc_test* ${INSTALL_PREFIX}/share/
 	cp -r imagenet/networks ${INSTALL_PREFIX}/share/
 }
 
