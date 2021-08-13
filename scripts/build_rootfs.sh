@@ -96,6 +96,12 @@ build() {
 	ok_or_die "Could not mount rootfs"
 
 	sudo rsync -aogxvPH rootfs/* $mnt
+
+	# Setup nameserver
+	# We need to do it here, because Docker does not let us change its
+	# rootfs
+	echo "nameserver 8.8.8.8" > $mnt/etc/resolv.conf
+
 	sudo chown -R root:root $mnt/root
 	ok_or_die "Could not populate rootfs"
 
