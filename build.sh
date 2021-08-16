@@ -157,7 +157,8 @@ build_fc_rootfs() {
 		--install_prefix $INSTALL_PREFIX/$BUILD_TYPE \
 		--build_dir $BUILD_DIR/$BUILD_TYPE \
 		--base_image "ubuntu:latest" \
-		--dockerfiles_path $DOCKERFILES_DIR
+		--dockerfiles_path $DOCKERFILES_DIR \
+		"$@"
 	ok_or_die "Could not build rootfs"
 }
 

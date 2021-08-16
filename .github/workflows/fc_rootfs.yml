@@ -1,0 +1,48 @@
+name: Build Firecracker rootfs
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - dockerfiles/ubuntu/latest/Dockerfile
+  push:
+    branches:
+      - main
+    paths:
+      - dockerfiles/ubuntu/latest/Dockerfile
+  
+jobs:
+  build_image:
+    runs-on: [self-hosted, "${{ matrix.arch }}"]
+    strategy:
+      matrix:
+        arch: [x86_64, aarch64]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build image
+        run: |
+          rm -rf build
+          rm -rf output
+          ./build.sh fc_rootfs build_base_rootfs
+
+      - name: Find SHA
+        run: |
+          if [[ "${{github.event.pull_request.head.sha}}" != "" ]]
+          then
+            echo "ARTIFACT_SHA=$(echo ${{github.event.pull_request.head.sha}})" >> $GITHUB_ENV
+          else
+            echo "ARTIFACT_SHA=master" >> $GITHUB_ENV
+          fi
+
+      - name: Upload artifact to s3
+        uses: cloudkernels/minio-upload@master
+        with:
+          url: https://s3.nubificus.co.uk
+          access-key: ${{ secrets.AWS_ACCESS_KEY }}
+          secret-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          local-path: output/debug/share/rootfs.img
+          remote-path: nbfc-assets/github/fc_rootfs/${{ env.ARTIFACT_SHA }}/${{ matrix.arch }}/

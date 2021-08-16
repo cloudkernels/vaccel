@@ -171,7 +171,8 @@ jobs:
                 --build_dir /tmp/rootfs_build \
                 --install_prefix ${{ github.workspace }}/artifacts/opt \
                 --base_image "ubuntu:latest" \
-                --dockerfiles_path "$(pwd)/dockerfiles"
+                --dockerfiles_path "$(pwd)/dockerfiles" \
+                all
 
     - name: Create tap interface
       run: sudo ./scripts/create_tap.sh tapTestFc 172.42.0.1/24
