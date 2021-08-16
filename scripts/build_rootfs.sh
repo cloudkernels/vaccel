@@ -20,6 +20,13 @@ LOG_NAME="$(basename $0)"
 
 source $SCRIPTPATH/utils.sh
 
+fetch_from_git() {
+	local git_url="https://github.com/$1"
+	local dest_dir="$2"
+
+	svn export $git_url $dest_dir
+}
+
 print_help() {
 	echo ""
 	echo "Usage: build_rootfs.sh [<args>]"
@@ -49,6 +56,7 @@ print_help() {
 
 
 build_base_rootfs() {
+	info "Building base Firecracker root filesystem"
 	mkdir -p ${BUILD_DIR}/rootfs
 	cd ${BUILD_DIR}/rootfs
 
@@ -64,6 +72,7 @@ build_base_rootfs() {
 	cp ${DOCKERFILES_PATH}/${image}/${tag}/Dockerfile .
 	ok_or_die "Could not find Dockerfile for ${BASE_IMAGE}"
 
+	info "Build root filesystem from Dockerfile"
 	# Create root filesystem
 	DOCKER_BUILDKIT=1 docker build \
 		--network=host \
@@ -72,10 +81,12 @@ build_base_rootfs() {
 		--output type=local,dest=. .
 	ok_or_die "Could not build the base rootfs"
 
-	dd if=/dev/zero of=rootfs.img bs=1M count=0 seek=4096
+	info "Prepare rootfs.img"
+	dd if=/dev/zero of=rootfs.img bs=1M count=0 seek=1024
 	sudo mkfs.ext4 rootfs.img
 	ok_or_die "Could not create filesystem for rootfs"
 
+	info "Copy rootfs in img file"
 	mkdir -p mnt
 	mnt="$(mktemp -d)"
 	sudo mount rootfs.img $mnt
@@ -97,10 +108,12 @@ build_base_rootfs() {
 	sudo sync
 	sudo rmdir $mnt
 
+	info "Install rootfs.img under ${INSTALL_PREFIX}/share"
 	cp rootfs.img ${INSTALL_PREFIX}/share/
 }
 
 install_vaccel() {
+	info "Installing vAccel in root filesystem"
 	mkdir -p ${BUILD_DIR}/rootfs
 	cd ${BUILD_DIR}/rootfs
 
@@ -116,9 +129,18 @@ install_vaccel() {
 		die "Base rootfs is not built properly"
 	fi
 
-	cp -r $INSTALL_PREFIX/{bin,lib,include,share} $mnt/opt/vaccel/
-	ok_or_die "Could not install vAccel in root file system"
+	info "Copying files"
+	cp -r $INSTALL_PREFIX/{bin,lib,include} $mnt/opt/vaccel/
 
+	mkdir -p $mnt/opt/vaccel/share
+	cp -r $INSTALL_PREFIX/share/models $mnt/opt/vaccel/share
+	ok_or_die "Could not copy ML models"
+
+	mkdir -p $mnt/opt/vaccel/share/images
+	fetch_from_git dusty-nv/jetson-inference/trunk/data/images/dog_1.jpg $mnt/opt/vaccel/share/images/dog_1.jpg
+	ok_or_die "Could not download example image"
+
+	info "Setup VirtIO module"
 	# Setup VirtIO module (hardcoded kernel version)
 	mkdir -p $mnt/lib/modules/4.20.0
 	cp $INSTALL_PREFIX/share/virtio_accel.ko $mnt/lib/modules/4.20.0

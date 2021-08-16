@@ -1,12 +1,21 @@
 name: Test e2e vAccel
 
 on:
+  # When a PR on main is opened
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - dockerfiles/
+
+  # When something gets pushed to main
   push:
     branches:
       - main
+    paths-ignore:
+      - dockerfiles/
+
+  # Manually
   workflow_dispatch:
 
 jobs:
@@ -67,7 +76,7 @@ jobs:
     - name: Install packages
       run: |
         sudo apt update && sudo apt install -y \
-          subversion coreutils rsync iproute2 libfdt-dev
+          subversion coreutils rsync iproute2 libfdt-dev pigz
 
     - name: Setup vars
       id: vars
@@ -162,17 +171,30 @@ jobs:
         ACTION_UID: ${{ steps.vars.outputs.uid }}
         ACTION_GID: ${{ steps.vars.outputs.gid }}
 
+    - name: Fetch Firecracker root file system
+      uses: cloudkernels/minio-download@v2
+      with:
+        url: https://s3.nubificus.co.uk
+        access-key: ${{secrets.AWS_ACCESS_KEY}}
+        secret-key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+        local-path: /github/workspace/artifacts/opt/share/
+        remote-path: nbfc-assets/github/fc_rootfs/master/${{matrix.arch}}/rootfs.img.gz
+      env:
+        ACTION_UID: ${{steps.vars.outputs.uid}}
+        ACTION_GID: ${{steps.vars.outputs.gid}}
+
     - name: Create rootfs
       run: |
         # We need this because downloading from s3 messes up with
         # file permissions
         chmod u+x ${{ github.workspace }}/artifacts/opt/bin/*
-        ./scripts/build_rootfs.sh \
+        pigz -d ${{ github.workspace }}/artifacts/opt/share/rootfs.img.gz
+        sudo ./scripts/build_rootfs.sh \
                 --build_dir /tmp/rootfs_build \
                 --install_prefix ${{ github.workspace }}/artifacts/opt \
                 --base_image "ubuntu:latest" \
                 --dockerfiles_path "$(pwd)/dockerfiles" \
-                all
+                install_vaccel
 
     - name: Create tap interface
       run: sudo ./scripts/create_tap.sh tapTestFc 172.42.0.1/24
@@ -198,19 +220,18 @@ jobs:
       run: |
         while true
         do
-          name=$(ssh -o StrictHostKeyChecking=no -i artifacts/opt/share/fc_test root@172.42.0.2 hostname -s)
+          name=$(ssh -o StrictHostKeyChecking=no root@172.42.0.2 hostname -s)
           if [[ $name == "vaccel-guest" ]]; then exit 0; fi
         done
         exit 1
 
     - name: Test virtio-accel
-      run: ./scripts/test_virtio.sh -i ${{ github.workspace }}/artifacts/opt/share/fc_test
+      run: ./scripts/test_virtio.sh
 
     - name: Test vsock plugin
       run: |
         sudo LD_LIBRARY_PATH=${{ github.workspace }}/artifacts/opt/lib \
           ./scripts/test_vsock.sh \
-            -i ${{ github.workspace }}/artifacts/opt/share/fc_test \
             -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so \
             --agent-prefix ${{ github.workspace }}/artifacts/opt/bin
 
@@ -221,7 +242,6 @@ jobs:
         cp ${{github.workspace}}/conf/{config_virtio_accel.json,config_vsock.json} share/
         zip -r ${{github.workspace}}/vaccel_${{matrix.arch}}_${{matrix.build_type}}.zip bin/ include/ lib/ \
           share/config_virtio_accel.json share/config_vsock.json \
-          share/fc_test share/fc_test.pub \
           share/rootfs.img share/virtio_accel.ko share/vmlinux \
           share/vaccel.pc
 
@@ -241,6 +261,7 @@ jobs:
         sudo rm -rf ${{ github.workspace }}/*
         sudo rm -rf ${{ github.workspace }}/.??*
         sudo rm -f /tmp/vaccel.sock*
+        sudo rm -rf /tmp/rootfs_build
         fc_pid=$(ps aux | grep -m 1 [f]irecracker | awk '{print $2}')
         while true
         do
