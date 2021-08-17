@@ -133,6 +133,24 @@ build_tf_plugin() {
 	ok_or_die "Could not fix permissions for TensorFlow plugin"
 }
 
+build_virtio_plugin() {
+	info "Calling VirtIO plugin build script"
+	runctr nubificus/vaccel-deps \
+		$SOURCEDIR/scripts/build_virtio_plugin.sh \
+			--$BUILD_TYPE \
+			--src_dir $SOURCEDIR/plugins/vaccelrt-plugin-virtio \
+			--build_dir $BUILD_DIR/$BUILD_TYPE \
+			--install_prefix $INSTALL_PREFIX/$BUILD_TYPE
+	ok_or_die "Could not build VirtIO plugin"
+
+	# Fix permissions
+	runctr nubificus/vaccel-deps \
+		chown -R "$(id -u):$(id -g)" \
+			$BUILD_DIR/$BUILD_TYPE/virtio-plugin \
+			$INSTALL_PREFIX/$BUILD_TYPE
+	ok_or_die "Could not fix permissions for VirtIO plugin"
+}
+
 build_vsock_plugin() {
 	info "Calling vsock plugin build script"
 	runctr nubificus/vaccel-deps \
@@ -144,11 +162,11 @@ build_vsock_plugin() {
 	ok_or_die "Could not build vsock plugin"
 
 	# Fix permissions
-	runctr nubificus/tensorflow \
+	runctr nubificus/vaccel-deps \
 		chown -R "$(id -u):$(id -g)" \
 			$BUILD_DIR/$BUILD_TYPE/vsock-plugin \
 			$INSTALL_PREFIX/$BUILD_TYPE
-	ok_or_die "Could not fix permissions for TensorFlow plugin"
+	ok_or_die "Could not fix permissions for vsock plugin"
 }
 
 build_fc_rootfs() {
@@ -170,6 +188,7 @@ download_models() {
 
 build_plugins() {
 	build_vsock_plugin
+	build_virtio_plugin
 	build_tf_plugin
 }
 
