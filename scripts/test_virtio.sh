@@ -12,9 +12,6 @@ SSH_TIMEOUT=300
 # Firecracker IP
 FC_IP="172.42.0.2"
 
-# Path to ssh private key
-SSH_KEY=$(pwd)/opt/share/fc_test
-
 # script name for logging
 LOG_NAME="$(basename $0)"
 
@@ -28,19 +25,18 @@ print_help() {
 	echo "    -v|--vaccel     Directory of vAccel installation (default: '/opt/vaccel')"
 	echo "    -t|--timeout    Timeout in seconds to wait response from Firecracker (default: 300)"
 	echo "    -a|--ip-address Address of Firecracker VM"
-	echo "    -i|--ssh-key    RSA key to use for SSHing inside the VM"
 	echo ""
 }
 
 _run_ssh_test() {
-	ssh -o StrictHostKeyChecking=no -i $SSH_KEY root@$FC_IP $1
+	ssh -o StrictHostKeyChecking=no root@$FC_IP $1
 }
 
 test_image_classification() {
 	in_fc_cmd="LD_LIBRARY_PATH=$VACCEL_PATH/lib"
 	in_fc_cmd="$in_fc_cmd VACCEL_BACKENDS=$VACCEL_PATH/lib/libvaccel-virtio.so"
 	in_fc_cmd="$in_fc_cmd VACCEL_DEBUG_LEVEL=4"
-	in_fc_cmd="$in_fc_cmd $VACCEL_PATH/bin/classify $VACCEL_PATH/share/images/example.jpg 1"
+	in_fc_cmd="$in_fc_cmd $VACCEL_PATH/bin/classify $VACCEL_PATH/share/images/dog_1.jpg 1"
 
 	_run_ssh_test "$in_fc_cmd"
 }
@@ -56,7 +52,6 @@ main() {
 			-v|--vaccel)      { VACCEL_PATH=$2; shift; };;
 			-t|--timeout)     { SSH_TIMEOUT=$2; shift; };;
 			-a|--ip-address)  { FC_IP=$2; shift;       };;
-			-i|--ssh-key)     { SSH_KEY=$2; shift;     };;
 			*)
 				die "Unknown argument: \"$1\". Please use \`$0 --help\`."
 				;;

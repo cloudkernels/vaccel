@@ -12,9 +12,6 @@ SSH_TIMEOUT=300
 # Firecracker IP
 FC_IP="172.42.0.2"
 
-# Path to ssh private key
-SSH_KEY=$(pwd)/opt/share/fc_test
-
 # vsock socket to use inside the VM
 VACCEL_VSOCK="vsock://2:2048"
 
@@ -43,7 +40,6 @@ print_help() {
 	echo "    -v|--vaccel     Directory of vAccel installation (default: '/opt/vaccel')"
 	echo "    -t|--timeout    Timeout in seconds to wait response from Firecracker (default: 300)"
 	echo "    -a|--ip-address Address of Firecracker VM"
-	echo "    -i|--ssh-key    RSA key to use for SSHing inside the VM"
 	echo "    -p|--plugin     Plugin to use for agent"
 	echo "    --agent-prefix  Location of the agent binary"
 	echo "    --vsock         Vsock socket to use inside the VM"
@@ -65,7 +61,7 @@ kill_agent() {
 }
 
 _run_ssh_test() {
-	ssh -o StrictHostKeyChecking=no -i $SSH_KEY root@$FC_IP $1
+	ssh -o StrictHostKeyChecking=no root@$FC_IP $1
 }
 
 test_image_classification() {
@@ -74,7 +70,7 @@ test_image_classification() {
 	in_fc_cmd="$in_fc_cmd VACCEL_BACKENDS=$VACCEL_PATH/lib/libvaccel-vsock.so"
 	in_fc_cmd="$in_fc_cmd VACCEL_VSOCK=$VACCEL_VSOCK"
 	in_fc_cmd="$in_fc_cmd VACCEL_DEBUG_LEVEL=4"
-	in_fc_cmd="$in_fc_cmd $VACCEL_PATH/bin/classify $VACCEL_PATH/share/images/example.jpg 1"
+	in_fc_cmd="$in_fc_cmd $VACCEL_PATH/bin/classify $VACCEL_PATH/share/images/dog_1.jpg 1"
 
 	_run_ssh_test "$in_fc_cmd"
 }
@@ -140,7 +136,6 @@ main() {
 			-v|--vaccel)      { VACCEL_PATH=$2; shift;  };;
 			-t|--timeout)     { SSH_TIMEOUT=$2; shift;  };;
 			-a|--ip-address)  { FC_IP=$2; shift;        };;
-			-i|--ssh-key)     { SSH_KEY=$2; shift;      };;
 			-p|--plugin)      { PLUGIN=$2; shift;       };;
 			--agent-prefix)   { AGENT_PREFIX=$2; shift; };;
 			--vsock)          { VACCEL_VSOCK=$2; shift; };;
