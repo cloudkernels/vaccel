@@ -1,0 +1,46 @@
+---
+name: Create vAccel release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to create release for"
+        required: true
+        default: 'warning'
+
+jobs:
+  create_release:
+    needs: test
+    runs-on: [self-hosted]
+
+    steps:
+    - name: Setup vars
+      id: vars
+      run: |
+        echo "::set-output name=uid::$(id -u)"
+        echo "::set-output name=gid::$(id -g)"
+
+    - name: Download artifacts
+      uses: cloudkernels/minio-download@v2
+      with:
+        url: https://s3.nubificus.co.uk
+        access-key: ${{ secrets.AWS_ACCESS_KEY }}
+        secret-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        remote-path: nbfc-assets/github/vaccel/${{github.event.inputs.tag}}/
+        local-path: /github/workspace/release/
+      env:
+        ACTION_UID: ${{steps.vars.outputs.uid}}
+        ACTION_GID: ${{steps.vars.outputs.gid}}
+
+    - name: Create Release
+      uses: marvinpinto/action-automatic-releases@latest
+      with:
+        automatic_release_tag: ${{github.event.inputs.tag}}
+        title: "vAccel release ${{github.event.inputs.tag}}"
+        files: |
+          release/vaccel_x86_64_Debug.tar.gz
+          release/vaccel_x86_64_Release.tar.gz
+          release/vaccel_aarch64_Debug.tar.gz
+          release/vaccel_aarch64_Release.tar.gz
+
