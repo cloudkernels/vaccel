@@ -5,15 +5,39 @@ on:
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - dockerfiles/
+    paths:
+      - agent
+      - bindings
+      - conf
+      - firecracker
+      - plugins
+      - scripts/build_rootfs.sh
+      - scripts/create_tap.sh
+      - scripts/test_virtio.sh
+      - scripts/test_vsock.sh
+      - !scripts/**
+      - vaccel-grpc
+      - vaccelrt
+      - virtio-accel
 
   # When something gets pushed to main
   push:
     branches:
       - main
-    paths-ignore:
-      - dockerfiles/
+    paths:
+      - agent
+      - bindings
+      - conf
+      - firecracker
+      - plugins
+      - scripts/build_rootfs.sh
+      - scripts/create_tap.sh
+      - scripts/test_virtio.sh
+      - scripts/test_vsock.sh
+      - !scripts/**
+      - vaccel-grpc
+      - vaccelrt
+      - virtio-accel
 
   # Manually
   workflow_dispatch:
