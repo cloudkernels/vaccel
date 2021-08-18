@@ -192,12 +192,22 @@ build_plugins() {
 	build_tf_plugin
 }
 
+build_vaccel_agent() {
+	info "Building vAccel agent"
+
+	./scripts/build_agent.sh \
+		--$BUILD_TYPE \
+		--build_dir $BUILD_DIR/$BUILD_TYPE \
+		--install_prefix $INSTALL_PREFIX/$BUILD_TYPE
+}
+
 build_all() {
 	build_vaccelrt
 	build_firecracker
 	build_virtio
-	build_fc_rootfs
+	build_fc_rootfs all
 	build_plugins
+	build_vaccel_agent
 	download_models
 }
 
@@ -241,6 +251,9 @@ build_help() {
 	echo ""
 	echo "    fc_rootfs"
 	echo "        build a rootfs image for firecracker"
+	echo ""
+	echo "    vaccel_agent"
+	echo "        build vAccel agent"
 	echo ""
 	echo "    imagenet-models"
 	echo "        Download imagenet network models"
