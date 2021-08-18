@@ -24,11 +24,17 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Install packages
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+            pigz
+
       - name: Build image
         run: |
           rm -rf build
           rm -rf output
           ./build.sh fc_rootfs build_base_rootfs
+          pigz -9 output/debug/share/rootfs.img
 
       - name: Find SHA
         run: |
@@ -45,5 +51,5 @@ jobs:
           url: https://s3.nubificus.co.uk
           access-key: ${{ secrets.AWS_ACCESS_KEY }}
           secret-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          local-path: output/debug/share/rootfs.img
+          local-path: output/debug/share/rootfs.img.gz
           remote-path: nbfc-assets/github/fc_rootfs/${{ env.ARTIFACT_SHA }}/${{ matrix.arch }}/
