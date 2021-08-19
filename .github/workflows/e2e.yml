@@ -339,4 +339,4 @@ jobs:
       with:
         workflow: "Create vAccel release"
         token: ${{secrets.GITHUB_TOKEN}}
-        inputs: '{ tag: ${{steps.tagName.outputs.tag}} }'
+        inputs: '{ "tag": "${{steps.tagName.outputs.tag}}" }'
