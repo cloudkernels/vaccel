@@ -99,6 +99,19 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - name: Find SHA
+      run: |
+        # If we are in a PR, use the name of the branch that we want to merge,
+        # otherwise "main" or tag name
+        if [[ "${{github.event.pull_request.head.sha}}" != "" ]]
+        then
+          echo "ARTIFACT_NAME=$(echo ${{github.event.pull_request.head.ref}})" >> $GITHUB_ENV
+        else
+          echo "ARTIFACT_NAME=$(echo ${GITHUB_REF##*/})" >> $GITHUB_ENV
+        fi
+
+        tail $GITHUB_ENV
+
     - name: Install packages
       run: |
         sudo apt update && sudo apt install -y \
@@ -261,25 +274,34 @@ jobs:
             -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so \
             --agent-prefix ${{ github.workspace }}/artifacts/opt/bin
 
-    - name: Pack latest release
-      if: ${{ github.event_name == 'push' }}
+    - name: Stop Firecracker
+      timeout-minutes: 1
+      shell: bash {0}
+      run: |
+        ssh -o StrictHostKeyChecking=no root@172.42.0.2 reboot
+        # Wait for it to actually die
+        sleep 10
+        sync
+
+    - name: Pack workflow artifact
       working-directory: ${{ github.workspace }}/artifacts/opt
       run: |
         cp ${{github.workspace}}/conf/{config_virtio_accel.json,config_vsock.json} share/
-        zip -r ${{github.workspace}}/vaccel_${{matrix.arch}}_${{matrix.build_type}}.zip bin/ include/ lib/ \
-          share/config_virtio_accel.json share/config_vsock.json \
-          share/rootfs.img share/virtio_accel.ko share/vmlinux \
-          share/vaccel.pc
+        tar --use-compress-program="pigz -k --best" \
+            -cf ${{github.workspace}}/vaccel_${{matrix.arch}}_${{matrix.build_type}}.tar.gz \
+            bin/ include/ lib/ \
+            share/config_virtio_accel.json share/config_vsock.json \
+            share/rootfs.img share/virtio_accel.ko share/vmlinux \
+            share/vaccel.pc
 
-    - name: Upload latest master release to s3
-      if: ${{ github.event_name == 'push' }}
+    - name: Upload artifact to s3
       uses: cloudkernels/minio-upload@master
       with:
         url: https://s3.nubificus.co.uk
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
-        remote-path: nbfc-assets/github/vaccel/master/${{env.ARCH}}/${{env.JOB_TYPE}}/
-        local-path: /github/workspace/vaccel_${{matrix.arch}}_${{matrix.build_type}}.zip
+        remote-path: nbfc-assets/github/vaccel/${{ env.ARTIFACT_NAME }}/
+        local-path: /github/workspace/vaccel_${{matrix.arch}}_${{matrix.build_type}}.tar.gz
 
     - name: Cleanup run
       if: ${{ always() }}
@@ -288,13 +310,13 @@ jobs:
         sudo rm -rf ${{ github.workspace }}/.??*
         sudo rm -f /tmp/vaccel.sock*
         sudo rm -rf /tmp/rootfs_build
-        fc_pid=$(ps aux | grep -m 1 [f]irecracker | awk '{print $2}')
+        agent_pid=$(ps aux | grep -m 1 [v]accelrt-agent | awk '{print $2}')
         while true
         do
-          fc_pid=$(ps aux | grep -m 1 [f]irecracker | awk '{print $2}')
-          if [[ $fc_pid == "" ]]; then break; fi
-          echo "Killing Firecracker (pid: $fc_pid)"
-          sudo kill -9 $fc_pid
+          agent_pid=$(ps aux | grep -m 1 [v]accelrt-agent | awk '{print $2}')
+          if [[ $agent_pid == "" ]]; then break; fi
+          echo "Killing vAccel agent (pid: $agent_pid)"
+          sudo kill -9 $agent_pid
           # Wait for it to actually die
           sleep 2
         done
