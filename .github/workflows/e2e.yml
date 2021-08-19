@@ -15,10 +15,11 @@ on:
       - scripts/create_tap.sh
       - scripts/test_virtio.sh
       - scripts/test_vsock.sh
-      - !scripts/**
+      - '!scripts/**'
       - vaccel-grpc
       - vaccelrt
       - virtio-accel
+      - .github/workflows/e2e.yml
 
   # When something gets pushed to main
   push:
@@ -34,10 +35,13 @@ on:
       - scripts/create_tap.sh
       - scripts/test_virtio.sh
       - scripts/test_vsock.sh
-      - !scripts/**
+      - '!scripts/**'
       - vaccel-grpc
       - vaccelrt
       - virtio-accel
+      - .github/workflows/e2e.yml
+    tags:
+      - v*
 
   # Manually
   workflow_dispatch:
@@ -96,6 +100,19 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+
+    - name: Find SHA
+      run: |
+        # If we are in a PR, use the name of the branch that we want to merge,
+        # otherwise "main" or tag name
+        if [[ "${{github.event.pull_request.head.sha}}" != "" ]]
+        then
+          echo "ARTIFACT_NAME=$(echo ${{github.event.pull_request.head.ref}})" >> $GITHUB_ENV
+        else
+          echo "ARTIFACT_NAME=$(echo ${GITHUB_REF##*/})" >> $GITHUB_ENV
+        fi
+
+        tail $GITHUB_ENV
 
     - name: Install packages
       run: |
@@ -259,25 +276,34 @@ jobs:
             -p ${{ github.workspace }}/artifacts/opt/lib/libvaccel-noop.so \
             --agent-prefix ${{ github.workspace }}/artifacts/opt/bin
 
-    - name: Pack latest release
-      if: ${{ github.event_name == 'push' }}
+    - name: Stop Firecracker
+      timeout-minutes: 1
+      shell: bash {0}
+      run: |
+        ssh -o StrictHostKeyChecking=no root@172.42.0.2 reboot
+        # Wait for it to actually die
+        sleep 10
+        sync
+
+    - name: Pack workflow artifact
       working-directory: ${{ github.workspace }}/artifacts/opt
       run: |
         cp ${{github.workspace}}/conf/{config_virtio_accel.json,config_vsock.json} share/
-        zip -r ${{github.workspace}}/vaccel_${{matrix.arch}}_${{matrix.build_type}}.zip bin/ include/ lib/ \
-          share/config_virtio_accel.json share/config_vsock.json \
-          share/rootfs.img share/virtio_accel.ko share/vmlinux \
-          share/vaccel.pc
+        tar --use-compress-program="pigz -k --best" \
+            -cf ${{github.workspace}}/vaccel_${{matrix.arch}}_${{matrix.build_type}}.tar.gz \
+            bin/ include/ lib/ \
+            share/config_virtio_accel.json share/config_vsock.json \
+            share/rootfs.img share/virtio_accel.ko share/vmlinux \
+            share/vaccel.pc
 
-    - name: Upload latest master release to s3
-      if: ${{ github.event_name == 'push' }}
+    - name: Upload artifact to s3
       uses: cloudkernels/minio-upload@master
       with:
         url: https://s3.nubificus.co.uk
         access-key: ${{ env.NBFC_S3_ACCESS }}
         secret-key: ${{ env.NBFC_S3_SECRET }}
-        remote-path: nbfc-assets/github/vaccel/master/${{env.ARCH}}/${{env.JOB_TYPE}}/
-        local-path: /github/workspace/vaccel_${{matrix.arch}}_${{matrix.build_type}}.zip
+        remote-path: nbfc-assets/github/vaccel/${{ env.ARTIFACT_NAME }}/
+        local-path: /github/workspace/vaccel_${{matrix.arch}}_${{matrix.build_type}}.tar.gz
 
     - name: Cleanup run
       if: ${{ always() }}
@@ -286,56 +312,31 @@ jobs:
         sudo rm -rf ${{ github.workspace }}/.??*
         sudo rm -f /tmp/vaccel.sock*
         sudo rm -rf /tmp/rootfs_build
-        fc_pid=$(ps aux | grep -m 1 [f]irecracker | awk '{print $2}')
+        agent_pid=$(ps aux | grep -m 1 [v]accelrt-agent | awk '{print $2}')
         while true
         do
-          fc_pid=$(ps aux | grep -m 1 [f]irecracker | awk '{print $2}')
-          if [[ $fc_pid == "" ]]; then break; fi
-          echo "Killing Firecracker (pid: $fc_pid)"
-          sudo kill -9 $fc_pid
+          agent_pid=$(ps aux | grep -m 1 [v]accelrt-agent | awk '{print $2}')
+          if [[ $agent_pid == "" ]]; then break; fi
+          echo "Killing vAccel agent (pid: $agent_pid)"
+          sudo kill -9 $agent_pid
           # Wait for it to actually die
           sleep 2
         done
         sudo ip tuntap del tapTestFc mode tap
 
-  update_latest_release:
+  invoke_create_release:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: test
     runs-on: [self-hosted]
-    env:
-      NBFC_S3_ACCESS: ${{ secrets.AWS_ACCESS_KEY }}
-      NBFC_S3_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
     steps:
+    - name: Get tag name
+      uses: olegtarasov/get-tag@v2.1
+      id: tagName
 
-    - name: Setup vars
-      id: vars
-      run: |
-        echo "::set-output name=uid::$(id -u)"
-        echo "::set-output name=gid::$(id -g)"
-
-    - name: Download artifacts
-      if: ${{ github.event_name == 'push' }}
-      uses: cloudkernels/minio-download@master
+    - name: Invoke workflow
+      uses: benc-uk/workflow-dispatch@v1
       with:
-        url: https://s3.nubificus.co.uk
-        access-key: ${{ env.NBFC_S3_ACCESS }}
-        secret-key: ${{ env.NBFC_S3_SECRET }}
-        remote-path: nbfc-assets/github/vaccel/master/
-        local-path: /github/workspace/master/
-      env:
-        ACTION_UID: ${{ steps.vars.outputs.uid }}
-        ACTION_GID: ${{ steps.vars.outputs.gid }}
-
-    - name: Update the release
-      if: ${{ github.event_name == 'push' }}
-      uses: marvinpinto/action-automatic-releases@latest
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        automatic_release_tag: "latest"
-        prerelease: true
-        title: "Latest master build"
-        files: |
-          master/vaccel_x86_64_Debug.zip
-          master/vaccel_x86_64_Release.zip
-          master/vaccel_aarch64_Debug.zip
-          master/vaccel_aarch64_Release.zip
+        workflow: "Create vAccel release"
+        token: ${{secrets.GITHUB_TOKEN}}
+        inputs: '{ tag: ${{steps.tagName.outputs.tag}} }'
