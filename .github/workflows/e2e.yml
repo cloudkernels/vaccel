@@ -15,10 +15,11 @@ on:
       - scripts/create_tap.sh
       - scripts/test_virtio.sh
       - scripts/test_vsock.sh
-      - !scripts/**
+      - '!scripts/**'
       - vaccel-grpc
       - vaccelrt
       - virtio-accel
+      - .github/workflows/e2e.yml
 
   # When something gets pushed to main
   push:
@@ -34,10 +35,11 @@ on:
       - scripts/create_tap.sh
       - scripts/test_virtio.sh
       - scripts/test_vsock.sh
-      - !scripts/**
+      - '!scripts/**'
       - vaccel-grpc
       - vaccelrt
       - virtio-accel
+      - .github/workflows/e2e.yml
 
   # Manually
   workflow_dispatch:
