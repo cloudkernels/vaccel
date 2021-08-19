@@ -40,6 +40,8 @@ on:
       - vaccelrt
       - virtio-accel
       - .github/workflows/e2e.yml
+    tags:
+      - v*
 
   # Manually
   workflow_dispatch:
@@ -322,44 +324,19 @@ jobs:
         done
         sudo ip tuntap del tapTestFc mode tap
 
-  update_latest_release:
+  invoke_create_release:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: test
     runs-on: [self-hosted]
-    env:
-      NBFC_S3_ACCESS: ${{ secrets.AWS_ACCESS_KEY }}
-      NBFC_S3_SECRET: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
     steps:
+    - name: Get tag name
+      uses: olegtarasov/get-tag@v2.1
+      id: tagName
 
-    - name: Setup vars
-      id: vars
-      run: |
-        echo "::set-output name=uid::$(id -u)"
-        echo "::set-output name=gid::$(id -g)"
-
-    - name: Download artifacts
-      if: ${{ github.event_name == 'push' }}
-      uses: cloudkernels/minio-download@master
+    - name: Invoke workflow
+      uses: benc-uk/workflow-dispatch@v1
       with:
-        url: https://s3.nubificus.co.uk
-        access-key: ${{ env.NBFC_S3_ACCESS }}
-        secret-key: ${{ env.NBFC_S3_SECRET }}
-        remote-path: nbfc-assets/github/vaccel/master/
-        local-path: /github/workspace/master/
-      env:
-        ACTION_UID: ${{ steps.vars.outputs.uid }}
-        ACTION_GID: ${{ steps.vars.outputs.gid }}
-
-    - name: Update the release
-      if: ${{ github.event_name == 'push' }}
-      uses: marvinpinto/action-automatic-releases@latest
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        automatic_release_tag: "latest"
-        prerelease: true
-        title: "Latest master build"
-        files: |
-          master/vaccel_x86_64_Debug.zip
-          master/vaccel_x86_64_Release.zip
-          master/vaccel_aarch64_Debug.zip
-          master/vaccel_aarch64_Release.zip
+        workflow: "Create vAccel release"
+        token: ${{secrets.GITHUB_TOKEN}}
+        inputs: '{ tag: ${{steps.tagName.outputs.tag}} }'
