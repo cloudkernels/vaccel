@@ -338,6 +338,6 @@ jobs:
       uses: benc-uk/workflow-dispatch@v1
       with:
         workflow: "Create vAccel release"
-        token: ${{secrets.GITHUB_TOKEN}}
+        token: ${{secrets.WORKFLOW_DISPATCH}}
         ref: ${{steps.tagName.outputs.tag}}
         inputs: '{ "tag": "${{steps.tagName.outputs.tag}}" }'
