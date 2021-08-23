@@ -10,7 +10,7 @@ on:
       - bindings
       - conf
       - firecracker
-      - plugins
+      - "plugins/**"
       - scripts/build_rootfs.sh
       - scripts/create_tap.sh
       - scripts/test_virtio.sh
@@ -30,7 +30,7 @@ on:
       - bindings
       - conf
       - firecracker
-      - plugins
+      - "plugins/**"
       - scripts/build_rootfs.sh
       - scripts/create_tap.sh
       - scripts/test_virtio.sh
