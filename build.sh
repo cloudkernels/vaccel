@@ -52,7 +52,7 @@ prepare_build_env() {
 }
 
 runctr() {
-	docker run --rm -ti \
+	docker run --rm \
 	       -v $SOURCEDIR:$SOURCEDIR \
 	       -v $BUILD_DIR:$BUILD_DIR \
 	       -v $INSTALL_PREFIX:$INSTALL_PREFIX \
