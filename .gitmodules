@@ -1,33 +1,30 @@
 [submodule "vaccelrt"]
 	path = vaccelrt
-	url = git@github.com:cloudkernels/vaccelrt.git
+	url = https://github.com/cloudkernels/vaccelrt.git
 [submodule "firecracker"]
 	path = firecracker
-	url = git@github.com:cloudkernels/firecracker.git
+	url = https://github.com/cloudkernels/firecracker.git
 [submodule "virtio-accel"]
 	path = virtio-accel
-	url = git@github.com:cloudkernels/virtio-accel.git
+	url = https://github.com/cloudkernels/virtio-accel.git
 [submodule "vaccel-grpc"]
 	path = vaccel-grpc
-	url = git@github.com:cloudkernels/vaccel-grpc.git
+	url = https://github.com/cloudkernels/vaccel-grpc.git
 [submodule "vaccelrt-client"]
 	path = vaccelrt-client
-	url = git@github.com:cloudkernels/vaccelrt-client.git
+	url = https://github.com/cloudkernels/vaccelrt-client.git
 [submodule "agent"]
 	path = agent
-	url = git@github.com:cloudkernels/vaccelrt-agent
+	url = https://github.com/cloudkernels/vaccelrt-agent
 [submodule "plugins/vaccelrt-plugin-vsock"]
 	path = plugins/vaccelrt-plugin-vsock
-	url = git@github.com:nubificus/vaccelrt-plugin-vsock.git
+	url = https://github.com/nubificus/vaccelrt-plugin-vsock.git
 [submodule "plugins/vaccelrt-plugin-virtio"]
 	path = plugins/vaccelrt-plugin-virtio
-	url = git@github.com:nubificus/vaccelrt-plugin-virtio.git
+	url = https://github.com/nubificus/vaccelrt-plugin-virtio.git
 [submodule "plugins/vaccelrt-plugin-jetson"]
 	path = plugins/vaccelrt-plugin-jetson
-	url = git@github.com:nubificus/vaccelrt-plugin-jetson.git
+	url = https://github.com/nubificus/vaccelrt-plugin-jetson.git
 [submodule "bindings/rust-bindings"]
 	path = bindings/rust-bindings
-	url = git@github.com:cloudkernels/vaccel-bindings.git
-[submodule "plugins/vaccelrt-plugin-tensorflow"]
-	path = plugins/vaccelrt-plugin-tensorflow
-	url = git@github.com:nubificus/vaccelrt-plugin-tensorflow.git
+	url = https://github.com/cloudkernels/vaccel-bindings.git
