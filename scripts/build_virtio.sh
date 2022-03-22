@@ -56,7 +56,7 @@ prepare_env() {
 
 fetch_linux() {
 	if [ ! -d "linux" ]; then
-		git clone --depth=1 -b v4.20 https://github.com/torvalds/linux.git
+		git clone --depth=1 -b v5.10 https://github.com/torvalds/linux.git
 	fi
 
 	cd linux
@@ -66,7 +66,7 @@ fetch_linux() {
 		die "Bad linux repo in $(pwd). Remote is $url. Not overwritting"
 	fi
 
-	git checkout v4.20
+	git checkout v5.10
 }
 
 build() {
@@ -74,11 +74,12 @@ build() {
 
 	# First build the linux kernel
 	fetch_linux
-	cd linux
-	wget https://raw.githubusercontent.com/firecracker-microvm/firecracker/master/resources/microvm-kernel-x86_64.config -O arch/x86/configs/microvm.config
+	#cd linux
+	KERNEL_CONFIG=https://raw.githubusercontent.com/firecracker-microvm/firecracker/main/resources/guest_configs/microvm-kernel-x86_64-5.10.config
+	wget $KERNEL_CONFIG -O arch/x86/configs/microvm.config
 	touch .config
-	make microvm.config
-	make vmlinux -j$(nproc)
+	make microvm.config CONFIG_MODULES=y
+	make -j$(nproc) 
 	ok_or_die "Could not build linux kernel"
 
 	# Now build the module
