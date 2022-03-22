@@ -89,7 +89,7 @@ build_base_rootfs() {
 	DOCKER_BUILDKIT=1 docker build \
 		--network=host \
 		-t vaccel-rootfs \
-		--build-arg "KERNEL_VERSION=4.20.0" \
+		--build-arg "KERNEL_VERSION=5.10.0" \
 		--output type=local,dest=. .
 	ok_or_die "Could not build the base rootfs"
 
@@ -154,12 +154,12 @@ install_vaccel() {
 
 	info "Setup VirtIO module"
 	# Setup VirtIO module (hardcoded kernel version)
-	mkdir -p $mnt/lib/modules/4.20.0
-	cp $INSTALL_PREFIX/share/virtio_accel.ko $mnt/lib/modules/4.20.0
-	touch $mnt/lib/modules/4.20.0/modules.order
-	touch $mnt/lib/modules/4.20.0/modules.builtin
+	mkdir -p $mnt/lib/modules/5.10.0
+	cp $INSTALL_PREFIX/share/virtio_accel.ko $mnt/lib/modules/5.10.0
+	touch $mnt/lib/modules/5.10.0/modules.order
+	touch $mnt/lib/modules/5.10.0/modules.builtin
 	echo "virtio_accel" >> $mnt/etc/modules
-	sudo chroot $mnt /sbin/depmod 4.20.0
+	sudo chroot $mnt /sbin/depmod 5.10.0
 
 	sudo sync
 	sudo umount $mnt
