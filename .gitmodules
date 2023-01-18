@@ -15,7 +15,7 @@
 	url = https://github.com/cloudkernels/vaccelrt-client.git
 [submodule "agent"]
 	path = agent
-	url = https://github.com/cloudkernels/vaccelrt-agent
+	url = https://github.com/nubificus/vaccelrt-agent
 [submodule "plugins/vaccelrt-plugin-vsock"]
 	path = plugins/vaccelrt-plugin-vsock
 	url = https://github.com/nubificus/vaccelrt-plugin-vsock.git
